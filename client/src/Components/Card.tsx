@@ -6,6 +6,13 @@ interface Props {
   card: CardType;
 }
 
+const suiteIcons: any = {
+  s: `♠`,
+  h: `♥`,
+  c: `♣`,
+  d: `♦`,
+};
+
 let CardContainer = styled.div`
   border: 1px solid black;
   border-radius: 4px;
@@ -16,12 +23,19 @@ let CardContainer = styled.div`
   display: flex;
   justify-content: center;
   align-items: center;
+  background-color: white;
 `;
+
+let CardText = styled.div((props) => ({
+  color: props.color,
+}));
 
 function Card({ card }: Props) {
   return (
     <CardContainer>
-      <h2>{`${card.suite} ${card.label}`}</h2>
+      <CardText
+        color={card.suite === "h" || card.suite === "d" ? "red" : "black"}
+      >{`${suiteIcons[card.suite]} ${card.label}`}</CardText>
     </CardContainer>
   );
 }

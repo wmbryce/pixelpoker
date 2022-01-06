@@ -1,4 +1,4 @@
-const suites = ["C", "H", "S", "D"];
+const suites = ["c", "h", "s", "d"];
 const cardinality = [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14];
 const label = [
   "2",

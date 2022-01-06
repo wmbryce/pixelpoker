@@ -93,14 +93,14 @@ function App() {
     <div className="App">
       <Table tableCards={tableCards} />
       <div>
+        <button onClick={advanceGameStage}>
+          {gameStage < 4 ? `Deal ${gameStages[gameStage]}` : `Reset`}
+        </button>
         <PlayerContainer>
           {players.map((player: any, index: number) => (
             <Player player={player} index={index} dealer={dealer} />
           ))}
         </PlayerContainer>
-        <button onClick={advanceGameStage}>
-          {gameStage < 4 ? `Deal ${gameStages[gameStage]}` : `Reset`}
-        </button>
         {/* <button onClick={createPlayer}>Add Player</button> */}
       </div>
     </div>

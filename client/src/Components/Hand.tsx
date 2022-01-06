@@ -3,9 +3,6 @@ import { CardType } from "./types";
 import Card from "./Card";
 import styled from "@emotion/styled";
 
-interface Props {
-  hand: Array<CardType>;
-}
 
 let HandContainer = styled.div`
   display: flex;
@@ -13,6 +10,10 @@ let HandContainer = styled.div`
   align-items: center;
   justify-content: center;
 `;
+
+interface Props {
+  hand: Array<CardType>;
+}
 
 function Hand({ hand = [] }: Props): JSX.Element {
   return (
