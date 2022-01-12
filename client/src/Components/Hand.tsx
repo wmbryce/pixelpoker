@@ -3,7 +3,6 @@ import { CardType } from "./types";
 import Card from "./Card";
 import styled from "@emotion/styled";
 
-
 let HandContainer = styled.div`
   display: flex;
   flex-direction: row;
@@ -13,13 +12,14 @@ let HandContainer = styled.div`
 
 interface Props {
   hand: Array<CardType>;
+  active?: boolean;
 }
 
-function Hand({ hand = [] }: Props): JSX.Element {
+function Hand({ hand = [], active }: Props): JSX.Element {
   return (
     <HandContainer>
       {hand.map((cardItem, index) => (
-        <Card key={index} card={cardItem} />
+        <Card key={index} card={active ? cardItem : null} />
       ))}
     </HandContainer>
   );

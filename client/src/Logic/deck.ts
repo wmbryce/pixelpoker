@@ -18,12 +18,18 @@ const label = [
 
 export const generateDeck = () => {
   const deck = suites.flatMap((suite) =>
-    cardinality.map((value, index) => ({ suite, value, label: label[index] }))
+    cardinality.map((value, index) => ({
+      suite,
+      value: label[index] + suite,
+      label: label[index],
+    }))
   );
 
-  const shuffled = shuffle(deck);
+  const shuffle1 = shuffle(deck);
+  const shuffle2 = shuffle(deck);
+  const shuffle3 = shuffle(deck);
 
-  return shuffled;
+  return shuffle3;
 };
 
 const shuffle = (array: Array<any>): Array<any> => {

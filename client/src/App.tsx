@@ -2,14 +2,16 @@ import React, { useState, useEffect } from "react";
 import logo from "./logo.svg";
 import "./App.css";
 import { generateDeck } from "./Logic/deck";
+import { advanceGameStage, initalizeGame } from "./Logic/gameplay";
 import Table from "./Components/Table";
 import Player from "./Components/Player";
 import styled from "@emotion/styled";
+import { Poker, gameStages } from "./Logic/types";
+const Hand = require("pokersolver").Hand;
 
-const gameStages = ["Pre-flop", "Flop", "Turn", "River"];
 const playersInit = [
-  { name: "Michael", stack: 100, hand: [] },
-  { name: "Computer", stack: 100, hand: [] },
+  { name: "Michael", stack: 100, cards: [], isActive: true },
+  { name: "Computer", stack: 100, cards: [], isActive: true },
 ];
 
 let PlayerContainer = styled.div`
@@ -21,84 +23,36 @@ let PlayerContainer = styled.div`
 `;
 
 function App() {
-  const [deck, setDeck] = useState<any[]>(generateDeck());
-  const [players, setPlayers] = useState<any[]>([
-    { name: "Michael", stack: 100, hand: [] },
-    { name: "Computer", stack: 100, hand: [] },
-  ]);
-  const [myPlayerNumber, setMyPlayerNumber] = useState<number>(0);
-  const [dealer, setDealer] = useState<number>(0);
-  const [tableCards, setTableCards] = useState<any[]>([]);
-  const [gameStage, setGameStage] = useState(0);
+  const [game, setGame] = useState(initalizeGame);
 
-  const createPlayer = () => {
-    const name = "michael";
-    const stack = "100";
-    const hand: Array<any> = [];
-    setPlayers([...players, { name, stack, hand }]);
+  const nextStep = () => {
+    const result = advanceGameStage(game);
+    setGame(result);
   };
 
-  const dealPreFlop = () => {
-    const cardsToDeal = players.length * 2;
-    let playerToBeDeltTo = dealer + 1 < players.length ? dealer + 1 : 0;
-    const newDeck = deck.slice(0);
-    for (let i = 0; i < cardsToDeal; i++) {
-      players[playerToBeDeltTo].hand.push(newDeck.pop());
-      playerToBeDeltTo =
-        playerToBeDeltTo + 1 < players.length ? playerToBeDeltTo + 1 : 0;
-      console.log("player during deal: ", players);
-    }
-    setDeck(newDeck);
+  const saveNextGameState = (newGame: Poker) => {
+    setGame(newGame);
   };
-
-  const dealFlopTurnRiver = () => {
-    const cardsToDeal = gameStage === 1 ? 3 : 1;
-    const newDeck = deck.slice(0);
-    const discard = newDeck.pop();
-    for (let i = 0; i < cardsToDeal; i++) {
-      tableCards.push(newDeck.pop());
-    }
-    setDeck(newDeck);
-  };
-
-  const resetGame = () => {
-    setDeck(generateDeck());
-    for (let player of players) {
-      player.hand = [];
-    }
-    setTableCards([]);
-    setGameStage(0);
-    setDealer(dealer + 1 < players.length ? dealer + 1 : 0);
-  };
-
-  const advanceGameStage = () => {
-    if (gameStage === 0) {
-      dealPreFlop();
-      setGameStage(1);
-    } else if (gameStage > 3) {
-      resetGame();
-    } else {
-      dealFlopTurnRiver();
-      setGameStage(gameStage + 1);
-    }
-  };
-
-  const dealCardsToTable = () => {
-    console.log("dealCardsToTable");
-  };
-
-  console.log("deck: ", deck);
 
   return (
     <div className="App">
-      <Table tableCards={tableCards} />
+      <Table tableCards={game.tableCards} pot={game.pot} />
       <div>
-        <button onClick={advanceGameStage}>
-          {gameStage < 4 ? `Deal ${gameStages[gameStage]}` : `Reset`}
+        <button onClick={nextStep}>
+          {game.stage < 4
+            ? `Deal ${gameStages[game.stage]}`
+            : gameStages[game.stage]}
         </button>
         <PlayerContainer>
-          {players.map((player: any, index: number) => (
-            <Player player={player} index={index} dealer={dealer} />
+          {game.players.map((player: any, index: number) => (
+            <Player
+              player={player}
+              index={index}
+              game={game}
+              saveGame={saveNextGameState}
+              dealer={game.dealer}
+              winner={game.winner}
+            />
           ))}
         </PlayerContainer>
         {/* <button onClick={createPlayer}>Add Player</button> */}

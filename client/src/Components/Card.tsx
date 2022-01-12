@@ -3,7 +3,7 @@ import { CardType } from "./types";
 import styled from "@emotion/styled";
 
 interface Props {
-  card: CardType;
+  card: CardType | null;
 }
 
 const suiteIcons: any = {
@@ -26,17 +26,30 @@ let CardContainer = styled.div`
   background-color: white;
 `;
 
+let BackOfCardContainer = styled.div`
+  border: 1px solid red;
+  border-radius: 4px;
+  padding: 0px 6px;
+  margin: 0px 6px;
+  width: 60px;
+  height: 100px;
+  display: flex;
+  background-color: red;
+`;
+
 let CardText = styled.div((props) => ({
   color: props.color,
 }));
 
 function Card({ card }: Props) {
-  return (
+  return card ? (
     <CardContainer>
       <CardText
         color={card.suite === "h" || card.suite === "d" ? "red" : "black"}
       >{`${suiteIcons[card.suite]} ${card.label}`}</CardText>
     </CardContainer>
+  ) : (
+    <BackOfCardContainer />
   );
 }
 
