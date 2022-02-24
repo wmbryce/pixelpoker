@@ -1,19 +1,25 @@
 const express = require("express");
-const app = express();
+const http = require("http");
 const socket = require("socket.io");
 const color = require("colors");
 const cors = require("cors");
 const { get_Current_User, user_Disconnect, join_User, } = require("./controllers/users");
-app.use(express());
 const port = 8000;
-app.use(cors());
-var server = app.listen(port, console.log(`Server is running on the port no: ${port} `, color.green));
-const io = socket(server);
+const app = express();
+const httpServer = http.createServer(app);
+const io = new socket.Server(httpServer, {
+    /* options */
+    cors: {
+        origin: "http://localhost:3000",
+    },
+});
+httpServer.listen(port, console.log(`Server is running on the port no: ${port} `, color.green));
 //initializing the socket io connection
 io.on("connection", (socket) => {
     //for a new user joining the room
     socket.on("joinRoom", ({ username, roomname }) => {
         //* create user
+        console.log("Join room! Wooo:", username, roomname);
         const p_user = join_User(socket.id, username, roomname);
         console.log(socket.id, "=id");
         socket.join(p_user.room);
