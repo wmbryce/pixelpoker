@@ -6,10 +6,11 @@ const Hand = require("pokersolver").Hand;
 
 export const initalizeGame = () => {
   const playersInit = [
-    { name: "Michael", stack: 100, cards: [], isActive: true },
-    { name: "Bethany", stack: 100, cards: [], isActive: true },
-    { name: "Computer", stack: 100, cards: [], isActive: true },
+    createPlayer("Michael", 1000),
+    createPlayer("Bethany", 1000),
+    createPlayer("Computer", 1000),
   ];
+
   const gameInit: Poker = {
     stage: 0,
     pot: 0,
@@ -18,9 +19,14 @@ export const initalizeGame = () => {
     players: playersInit,
     winner: [],
     actionOn: 1,
+    currentBet: 0,
     dealer: 0,
   };
   return gameInit;
+};
+
+export const createPlayer = (name: string, stack: number) => {
+  return { name, stack, cards: [], lastBet: 0, isActive: true, checked: false };
 };
 
 export const dealPreFlop = (game: Poker) => {
@@ -60,18 +66,22 @@ const resetGame = (game: Poker) => {
   for (let player of game.players) {
     player.cards = [];
     player.isActive = true;
+    player.lastBet = 0;
   }
   game.tableCards = [];
   game.winner = [];
   game.stage = 0;
+  game.currentBet = 20;
   game.dealer = game.dealer + 1 < game.players.length ? game.dealer + 1 : 0;
   return game;
 };
 
 const determineWinner = (game: Poker) => {
-  const playerHands = game.players.map(({ cards }) =>
-    Hand.solve([...game.tableCards, ...cards].map((card) => card.value))
-  );
+  const playerHands = game.players
+    .filter((player) => player.isActive)
+    .map(({ cards }) =>
+      Hand.solve([...game.tableCards, ...cards].map((card) => card.value))
+    );
   const solvedCardPools = playerHands.map((hand) =>
     hand.cards.map((card: any) => card.value + card.suit)
   );
@@ -99,9 +109,14 @@ const determineWinner = (game: Poker) => {
   game.winner = winningIndexes;
 };
 
-export const playerBet = (game: Poker, playerIndex: number, bet: number) => {
-  game.players[playerIndex].stack -= bet;
-  game.pot += bet;
+const distributeWinnings = (game: Poker) => {
+  const numberOfWinners = game.winner.length;
+  const remainder = game.pot % numberOfWinners;
+  for (let winner of game.winner) {
+    game.players[winner].stack += (game.pot - remainder) / numberOfWinners;
+  }
+  game.pot = remainder;
+  //Todo: handle side pots etc;
 };
 
 export const advanceGameStage = (game: Poker) => {
@@ -115,11 +130,19 @@ export const advanceGameStage = (game: Poker) => {
     newGame.stage += 1;
   } else if (newGame.stage === 4) {
     determineWinner(newGame);
+    distributeWinnings(newGame);
     newGame.stage += 1;
+    setTimeout(() => {
+      resetGame(newGame);
+    }, 3000);
     // game.stage = 5;
     //resetGame(newGame);
-  } else if (game.stage === 5) {
-    resetGame(newGame);
+  } else if (newGame.stage === 5) {
+  }
+  newGame.currentBet = 0;
+  for (let player of newGame.players) {
+    player.lastBet = 0;
+    player.checked = false;
   }
   //console.log("done advancing game stage!", game);
   return newGame;

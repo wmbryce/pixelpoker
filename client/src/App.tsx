@@ -7,12 +7,12 @@ import Table from "./Components/Table";
 import Player from "./Components/Player";
 import styled from "@emotion/styled";
 import { Poker, gameStages } from "./Logic/types";
-const Hand = require("pokersolver").Hand;
+import { io } from "socket.io-client";
 
-const playersInit = [
-  { name: "Michael", stack: 100, cards: [], isActive: true },
-  { name: "Computer", stack: 100, cards: [], isActive: true },
-];
+const Hand = require("pokersolver").Hand;
+const SERVER = "http://localhost:8080/";
+
+const socket = io();
 
 let PlayerContainer = styled.div`
   display: flex;
@@ -25,6 +25,17 @@ let PlayerContainer = styled.div`
 function App() {
   const [game, setGame] = useState(initalizeGame);
 
+  useEffect(() => {
+    if (
+      (game.currentBet > 0 &&
+        game.currentBet === game.players[game.actionOn].lastBet) ||
+      (game.currentBet === 0 && game.players[game.actionOn].checked)
+    ) {
+      const result = advanceGameStage(game);
+      setGame(result);
+    }
+  }, [game]);
+
   const nextStep = () => {
     const result = advanceGameStage(game);
     setGame(result);
@@ -36,7 +47,11 @@ function App() {
 
   return (
     <div className="App">
-      <Table tableCards={game.tableCards} pot={game.pot} />
+      <Table
+        tableCards={game.tableCards}
+        pot={game.pot}
+        currentBet={game.currentBet}
+      />
       <div>
         <button onClick={nextStep}>
           {game.stage < 4

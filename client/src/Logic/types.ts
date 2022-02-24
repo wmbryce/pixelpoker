@@ -6,6 +6,7 @@ export interface Poker {
   players: Array<PlayerType>;
   winner: any;
   actionOn: number;
+  currentBet: number;
   dealer: number;
 }
 
@@ -13,6 +14,8 @@ export interface PlayerType {
   name: string;
   stack: number;
   cards: Array<CardType>;
+  lastBet: number;
+  checked: boolean;
   isActive: boolean;
 }
 
