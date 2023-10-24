@@ -3,8 +3,8 @@ import styled from "@emotion/styled";
 
 //gets the data from the action object and reducers defined earlier
 interface Props {
-  username: String;
-  roomname: String;
+  username?: String;
+  room?: String;
   Socket: any;
 }
 const ChatBoxContainer = styled.div`
@@ -23,7 +23,7 @@ const MessageRowRecieved = styled.div`
   border-radius: 5px;
   margin: 10px 300px 10px 0px;
   padding: 0px 20px;
-  width: 80%;
+  //width: 80%;
 `;
 
 const MessageRowSent = styled.div`
@@ -35,7 +35,7 @@ const MessageRowSent = styled.div`
   border-radius: 5px;
   margin: 10px 20px 10px 300px;
   padding: 0px 20px;
-  width: 70%;
+  //width: 70%;
 `;
 
 const MessageText = styled.p`
@@ -50,7 +50,7 @@ const MessageLabel = styled.p`
   margin-top: -10px;
 `;
 
-function ChatBox({ username, roomname, Socket }: Props) {
+function ChatBox({ username, room, Socket }: Props) {
   const [text, setText] = useState("");
   const [messages, setMessages] = useState<any[]>([]);
 
@@ -97,7 +97,7 @@ function ChatBox({ username, roomname, Socket }: Props) {
     <ChatBoxContainer>
       <div className="user-name">
         <h2>
-          {username} <span style={{ fontSize: "0.7rem" }}>in {roomname}</span>
+          {username} <span style={{ fontSize: "0.7rem" }}>in {room}</span>
         </h2>
       </div>
       <div className="chat-message">

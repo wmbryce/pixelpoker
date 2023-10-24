@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from "react";
 import styled from "@emotion/styled";
-import WelcomeChat from "./WelcomeChat";
+import WelcomeChat from "./WelcomeView";
 import ChatBox from "./ChatBox";
 
 interface Props {
   Socket: any;
+  username?: string;
+  room?: string;
 }
 
 let ChatContainer = styled.div`
@@ -18,16 +20,14 @@ let ChatContainer = styled.div`
   padding: 32px 0px;
 `;
 
-function Chat({ Socket }: Props): JSX.Element {
-  const [username, setUsername] = useState("");
-  const [roomname, setRoomName] = useState("");
+function Chat({ Socket, username, room }: Props): JSX.Element {
   const [chatInitalized, setChatInitalized] = useState(false);
 
   //activates joinRoom function defined on the backend
   const sendData = () => {
-    if (username !== "" && roomname !== "") {
-      console.log("About to emit to socket: ", username, roomname);
-      Socket.emit("joinRoom", { username, roomname });
+    if (username !== "" && room !== "") {
+      console.log("About to emit to socket: ", username, room);
+      Socket.emit("joinRoom", { username, room });
       //if empty error message pops up and returns to the same page
     } else {
       alert("username and roomname are must !");
@@ -35,28 +35,9 @@ function Chat({ Socket }: Props): JSX.Element {
     }
   };
 
-  useEffect(() => {
-    if (!chatInitalized) {
-      Socket.on("message", (data: any) => {
-        console.log("recieved data: ", data);
-        setChatInitalized(true);
-      });
-    }
-  }, [Socket]);
-
   return (
     <ChatContainer>
-      {chatInitalized ? (
-        <ChatBox Socket={Socket} username={username} roomname={roomname} />
-      ) : (
-        <WelcomeChat
-          username={username}
-          setUsername={setUsername}
-          sendData={sendData}
-          roomname={roomname}
-          setRoomName={setRoomName}
-        />
-      )}
+      <ChatBox Socket={Socket} username={username} room={room} />
     </ChatContainer>
   );
 }

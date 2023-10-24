@@ -5,6 +5,12 @@ import Player from "./Player";
 import styled from "@emotion/styled";
 import { Poker, gameStages } from "../Logic/types";
 
+interface Props {
+  Socket: any;
+  username?: string;
+  room?: string;
+}
+
 let PlayerContainer = styled.div`
   display: flex;
   flex-direction: row;
@@ -21,8 +27,14 @@ let RootContainer = styled.div`
   text-align: center;
 `;
 
-function GameContainer() {
+function GameContainer({ Socket, username, room }: Props) {
   const [game, setGame] = useState(initalizeGame);
+
+  useEffect(() => {
+    Socket.on("updateGame", (data: any) => {
+      setGame(data);
+    });
+  }, [Socket]);
 
   useEffect(() => {
     if (

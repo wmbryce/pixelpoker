@@ -48,6 +48,10 @@ io.on("connection", (socket) => {
       username: p_user.username,
       text: `${p_user.username} has joined the chat`,
     });
+
+    socket.emit("game", {
+      userId: p_user.id,
+    });
   });
 
   //user sending message
