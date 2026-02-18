@@ -1,46 +1,21 @@
-import React, { useState } from "react";
-import { CardType } from "./types";
-import Hand from "./Hand";
-import styled from "@emotion/styled";
+import Hand from './Hand';
+import type { CardType } from '@pixelpoker/shared';
 
 interface Props {
-  tableCards: Array<CardType>;
+  tableCards: CardType[];
   pot: number;
   currentBet: number;
 }
 
-let TableHandContainer = styled.div`
-  height: 200px;
-  display: flex;
-  flex: 1;
-  justify-content: center;
-  align-items: center;
-  flex-direction: column;
-  background-color: green;
-  margin: 0px 100px 20px 100px;
-  border-radius: 25px;
-  padding: 16px;
-`;
-
-let TableText = styled.h2`
-  color: white;
-  font-size: 18px;
-`;
-
-let TableSubtext = styled.h2`
-  color: white;
-  font-size: 16px;
-`;
-
-function Table({ tableCards, pot, currentBet }: Props): JSX.Element {
+function Table({ tableCards, pot, currentBet }: Props) {
   return (
-    <div className="Table">
-      <h1>Table</h1>
-      <TableHandContainer>
+    <div className="mx-24 mb-5">
+      <h1 className="text-xl font-bold mb-2">Table</h1>
+      <div className="h-48 flex flex-col justify-center items-center bg-green-600 rounded-3xl p-4 gap-3">
         <Hand hand={tableCards} active={true} />
-        <TableText>Pot: {pot}</TableText>
-        <TableSubtext>Current bet: {currentBet}</TableSubtext>
-      </TableHandContainer>
+        <p className="text-white font-semibold text-lg">Pot: ${pot}</p>
+        <p className="text-white text-sm">Current bet: ${currentBet}</p>
+      </div>
     </div>
   );
 }

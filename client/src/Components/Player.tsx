@@ -1,116 +1,105 @@
-import React, { useState, useEffect } from "react";
-import { PlayerType, Poker } from "../Logic/types";
-import Hand from "./Hand";
-import styled from "@emotion/styled";
-import { raise, fold, call, nextPlayer } from "../Logic/actions";
-import { cloneDeep } from "lodash";
+import { useState } from 'react';
+import Hand from './Hand';
+import socket from '../socket';
+import type { PlayerType } from '@pixelpoker/shared';
+import type { GameAction } from '@pixelpoker/shared';
 
 interface Props {
   player: PlayerType;
-  dealer: number;
   index: number;
-  winner: Array<number>;
-  game: Poker;
-  saveGame: any;
+  dealer: number;
+  winner: number[];
+  actionOn: number;
+  currentBet: number;
+  numPlayers: number;
+  isMe: boolean;
 }
 
-let Actions = styled.div`
-  display: flex;
-  flex-direction: column;
-  height: 120px;
-  flex: 1;
-  justify-content: space-around;
-  align-items: center;
-`;
-
-let BetInput = styled.div`
-  display: flex;
-  flex-direction: row;
-  height: 40px;
-  align-items: center;
-  justify-content: center;
-`;
+function seatLabel(index: number, dealer: number, numPlayers: number): string {
+  if (index === dealer) return 'Dealer';
+  if (index === (dealer + 1) % numPlayers) return 'Small Blind';
+  if (index === (dealer + 2) % numPlayers) return 'Big Blind';
+  return '';
+}
 
 function Player({
   player,
-  dealer,
   index,
+  dealer,
   winner,
-  game,
-  saveGame,
-}: Props): JSX.Element {
-  console.log("Checking for winner!", winner.includes(index), index, winner);
+  actionOn,
+  currentBet,
+  numPlayers,
+  isMe,
+}: Props) {
   const [bet, setBet] = useState(20);
-  const [error, setError] = useState(null);
 
-  useEffect(() => {
-    if (!player.isActive && index === game.actionOn) {
-      const newGame = cloneDeep(game);
-      newGame.actionOn = nextPlayer(newGame, index);
-      saveGame(newGame);
-    }
-  }, [game]);
+  const isMyTurn = isMe && actionOn === index && player.isActive;
 
-  const sendAction = (action: any) => {
-    const { result, error } = action(game, index, bet);
-    if (result) {
-      result.actionOn = nextPlayer(result, index);
-      console.log("result from action: ", action, result);
-      saveGame(result);
-    } else {
-      setError(error);
-    }
+  const sendAction = (type: GameAction['type']) => {
+    const action: GameAction = { type, playerIndex: index, bet };
+    socket.emit('gameAction', action);
   };
 
+  const label = seatLabel(index, dealer, numPlayers);
+  const isWinner = winner.includes(index);
+
   return (
-    <div key={index}>
-      <h2>{player.name}</h2>
-      <h3>
-        {index === dealer
-          ? "Dealer"
-          : index === dealer + 1 || dealer === game.players.length - 1
-          ? "Small blind"
-          : index === dealer + 2 || dealer === game.players.length - 2
-          ? "Big blind"
-          : " "}
-      </h3>
-      <h2>{player.stack}</h2>
+    <div
+      className={`flex flex-col items-center gap-1 p-3 rounded-lg border-2 min-w-[160px] ${
+        isMyTurn ? 'border-yellow-400 bg-yellow-50' : 'border-gray-200 bg-white'
+      } ${!player.isActive ? 'opacity-50' : ''}`}
+    >
+      <h2 className="text-base font-bold">
+        {player.name}
+        {isMe && <span className="ml-1 text-xs text-blue-500">(you)</span>}
+      </h2>
+      {label && <p className="text-xs text-gray-500">{label}</p>}
+      <p className="text-sm font-semibold">${player.stack}</p>
+
       <Hand hand={player.cards} active={player.isActive} />
-      {winner.includes(index) && <h3>Winner!</h3>}
-      <Actions>
-        <BetInput>
-          <h3>Bet: </h3>
-          <input
-            type="number"
-            min={game.currentBet}
-            max={player.stack}
-            //class="slider"
-            onChange={(event: any) =>
-              setBet(Number.parseInt(event.target.value))
-            }
-            value={bet}
-            disabled={game.actionOn !== index}
-          />
-        </BetInput>
-        <button
-          onClick={() => sendAction(raise)}
-          disabled={game.actionOn !== index}
-        >
-          Raise: {bet}
-        </button>
-        <button
-          onClick={() => sendAction(call)}
-          disabled={game.actionOn !== index}
-        >
-          Check/Call{" "}
-        </button>
-        <button
-          onClick={() => sendAction(fold)}
-          disabled={game.actionOn !== index}
-        >
-          Fold
-        </button>
-      </Actions>
+
+      {isWinner && (
+        <span className="text-yellow-500 font-bold text-sm">Winner!</span>
+      )}
+
+      {isMe && (
+        <div className="flex flex-col items-center gap-2 mt-2">
+          <div className="flex items-center gap-2">
+            <label className="text-xs text-gray-600">Bet:</label>
+            <input
+              type="number"
+              min={currentBet}
+              max={player.stack}
+              value={bet}
+              disabled={!isMyTurn}
+              onChange={(e) => setBet(Number.parseInt(e.target.value, 10))}
+              className="w-20 border border-gray-300 rounded px-2 py-1 text-sm disabled:opacity-40"
+            />
+          </div>
+          <button
+            onClick={() => sendAction('raise')}
+            disabled={!isMyTurn}
+            className="w-28 bg-blue-600 text-white text-sm py-1 rounded hover:bg-blue-700 disabled:opacity-40 transition-colors"
+          >
+            Raise {bet}
+          </button>
+          <button
+            onClick={() => sendAction('call')}
+            disabled={!isMyTurn}
+            className="w-28 bg-gray-600 text-white text-sm py-1 rounded hover:bg-gray-700 disabled:opacity-40 transition-colors"
+          >
+            Check / Call
+          </button>
+          <button
+            onClick={() => sendAction('fold')}
+            disabled={!isMyTurn}
+            className="w-28 bg-red-600 text-white text-sm py-1 rounded hover:bg-red-700 disabled:opacity-40 transition-colors"
+          >
+            Fold
+          </button>
+        </div>
+      )}
     </div>
   );
 }

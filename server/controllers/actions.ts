@@ -1,46 +1,53 @@
-import { Poker } from "./types";
-import { cloneDeep, isEqual } from "lodash";
+import { cloneDeep } from 'lodash';
+import type { Poker } from './types';
 
-export const raise = (game: Poker, playerIndex: number, bet: number) => {
-  const newGame = cloneDeep(game);
-  if (bet <= newGame.players[playerIndex].stack) {
-    newGame.players[playerIndex].stack -= bet;
-    newGame.players[playerIndex].lastBet = bet;
-    newGame.currentBet = bet;
-    newGame.pot += bet;
-    return { result: newGame, error: null };
-  } else {
-    return { result: null, error: "Invalid bet" };
+export const raise = (
+  game: Poker,
+  playerIndex: number,
+  bet: number
+): { result: Poker | null; error: string | null } => {
+  if (bet <= 0 || bet > game.players[playerIndex].stack) {
+    return { result: null, error: 'Invalid bet amount' };
   }
+  const next = cloneDeep(game);
+  next.players[playerIndex].stack -= bet;
+  next.players[playerIndex].lastBet = bet;
+  next.currentBet = bet;
+  next.pot += bet;
+  return { result: next, error: null };
 };
 
-export const call = (game: Poker, playerIndex: number) => {
-  const newGame = cloneDeep(game);
-  const bet = game.currentBet - game.players[playerIndex].lastBet;
-  console.log(
-    "calling bet: ",
-    game.currentBet,
-    bet,
-    bet <= newGame.players[playerIndex].stack
-  );
-  if (bet <= newGame.players[playerIndex].stack) {
-    newGame.players[playerIndex].stack -= bet;
-    newGame.pot += bet;
-    newGame.players[playerIndex].lastBet = game.currentBet;
-    newGame.players[playerIndex].checked = bet === 0;
-    return { result: newGame, error: null };
-  } else {
-    return { result: null, error: "Invalid check" };
+export const call = (
+  game: Poker,
+  playerIndex: number
+): { result: Poker | null; error: string | null } => {
+  const amount = game.currentBet - game.players[playerIndex].lastBet;
+  if (amount > game.players[playerIndex].stack) {
+    return { result: null, error: 'Not enough chips to call' };
   }
+  const next = cloneDeep(game);
+  next.players[playerIndex].stack -= amount;
+  next.pot += amount;
+  next.players[playerIndex].lastBet = game.currentBet;
+  next.players[playerIndex].checked = amount === 0;
+  return { result: next, error: null };
 };
 
-export const fold = (game: Poker, playerIndex: number) => {
-  const newGame = cloneDeep(game);
-  newGame.players[playerIndex].isActive = false;
-  return { result: newGame, error: null };
+export const fold = (
+  game: Poker,
+  playerIndex: number
+): { result: Poker; error: null } => {
+  const next = cloneDeep(game);
+  next.players[playerIndex].isActive = false;
+  return { result: next, error: null };
 };
 
-export const nextPlayer = (game: Poker, currentIndex: number) => {
-  const numberOfPlayers = game.players.length;
-  return currentIndex + 1 < numberOfPlayers ? currentIndex + 1 : 0;
+export const nextPlayer = (game: Poker, currentIndex: number): number => {
+  const n = game.players.length;
+  let next = (currentIndex + 1) % n;
+  // Skip folded players
+  while (!game.players[next].isActive && next !== currentIndex) {
+    next = (next + 1) % n;
+  }
+  return next;
 };

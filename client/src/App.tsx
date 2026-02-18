@@ -1,53 +1,47 @@
-import React, { useState, useEffect } from "react";
-import logo from "./logo.svg";
-import "./App.css";
-import ChatContainer from "./Components/ChatContainer";
-import GameContainer from "./Components/GameContainer";
-import WelcomeView from "./Components/WelcomeView";
-import styled from "@emotion/styled";
-import { io } from "socket.io-client";
-
-const Hand = require("pokersolver").Hand;
-const SERVER = "http://localhost:8000/";
-
-const Socket = io(SERVER);
-
-let AppContainer = styled.div`
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  width: 100%;
-  margin: 16px 0px;
-`;
-
-/*
- */
+import { useEffect } from 'react';
+import socket from './socket';
+import { useGameStore } from './store/gameStore';
+import GameContainer from './Components/GameContainer';
+import ChatContainer from './Components/ChatContainer';
+import WelcomeView from './Components/WelcomeView';
 
 function App() {
-  const [username, setUsername] = useState<any>(undefined);
-  const [room, setRoom] = useState<any>(undefined);
+  const { username, room, setUsername, setRoom, setGame, setMyPlayerIndex } = useGameStore();
 
   const setupRoom = (userId: string, roomId: string) => {
-    if (userId && roomId) {
-      Socket.emit("joinRoom", { username: userId, room: roomId });
-      setUsername(userId);
-      setRoom(roomId);
-    }
+    setUsername(userId);
+    setRoom(roomId);
+    socket.connect();
+    socket.emit('joinRoom', { username: userId, room: roomId });
   };
 
-  console.log("username: ", username, "room: ", room);
+  useEffect(() => {
+    socket.on('updateGame', (data) => {
+      setGame(data);
+    });
+
+    socket.on('roomJoined', ({ playerIndex, game }) => {
+      setMyPlayerIndex(playerIndex);
+      setGame(game);
+    });
+
+    return () => {
+      socket.off('updateGame');
+      socket.off('roomJoined');
+    };
+  }, [setGame, setMyPlayerIndex]);
 
   return (
-    <AppContainer>
+    <div className="flex flex-col justify-between w-full my-4">
       {username && room ? (
         <>
-          <GameContainer Socket={Socket} username={username} room={room} />
-          <ChatContainer Socket={Socket} username={username} room={room} />
+          <GameContainer />
+          <ChatContainer />
         </>
       ) : (
         <WelcomeView setupRoom={setupRoom} />
       )}
-    </AppContainer>
+    </div>
   );
 }
 

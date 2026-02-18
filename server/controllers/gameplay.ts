@@ -1,148 +1,146 @@
-import { generateDeck } from "./deck";
-import { CardType, Poker, PlayerType } from "./types";
-import { cloneDeep, isEqual } from "lodash";
-const Hand = require("pokersolver").Hand;
+import { cloneDeep, isEqual } from 'lodash';
+import { generateDeck } from './deck';
+import type { CardType, Poker, PlayerType } from './types';
 
-export const initalizeGame = () => {
-  const playersInit = [
-    createPlayer("Michael", 1000),
-    createPlayer("Bethany", 1000),
-    createPlayer("Computer", 1000),
-  ];
+// pokersolver has no type definitions — import with require
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const Hand = require('pokersolver').Hand;
 
-  const gameInit: Poker = {
-    stage: 0,
-    pot: 0,
-    tableCards: [],
-    deck: generateDeck(),
-    players: playersInit,
-    winner: [],
-    actionOn: 1,
-    currentBet: 0,
-    dealer: 0,
-  };
-  return gameInit;
-};
+// ──────────────────────────────────────────────────────────────────────────────
+// Factories
+// ──────────────────────────────────────────────────────────────────────────────
 
-export const createPlayer = (name: string, stack: number) => {
-  return { name, stack, cards: [], lastBet: 0, isActive: true, checked: false };
-};
+export const createPlayer = (id: string, name: string): PlayerType => ({
+  id,
+  name,
+  stack: 1000,
+  cards: [],
+  lastBet: 0,
+  isActive: true,
+  checked: false,
+});
 
-export const dealPreFlop = (game: Poker) => {
+export const initializeGame = (): Poker => ({
+  stage: 0,
+  pot: 0,
+  tableCards: [],
+  deck: generateDeck(),
+  players: [],
+  winner: [],
+  actionOn: 0,
+  currentBet: 0,
+  dealer: 0,
+});
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Dealing
+// ──────────────────────────────────────────────────────────────────────────────
+
+const dealPreFlop = (game: Poker): Poker => {
   const cardsToDeal = game.players.length * 2;
-  let playerToBeDeltTo =
-    game.dealer + 1 < game.players.length ? game.dealer + 1 : 0;
-  const newDeck = game.deck.slice(0);
+  let seat = game.dealer + 1 < game.players.length ? game.dealer + 1 : 0;
+  const deck = game.deck.slice();
+
   for (let i = 0; i < cardsToDeal; i++) {
-    const newCard = newDeck.pop();
-    if (newCard) {
-      game.players[playerToBeDeltTo].cards.push(newCard);
-    }
-    playerToBeDeltTo =
-      playerToBeDeltTo + 1 < game.players.length ? playerToBeDeltTo + 1 : 0;
-    console.log("player during deal: ", game.players);
+    const card = deck.pop();
+    if (card) game.players[seat].cards.push(card);
+    seat = seat + 1 < game.players.length ? seat + 1 : 0;
   }
-  game.deck = newDeck;
+
+  game.deck = deck;
   return game;
 };
 
-export const dealFlopTurnRiver = (game: Poker) => {
-  const cardsToDeal = game.stage === 1 ? 3 : 1;
-  const newDeck = game.deck.slice(0);
-  const discard = newDeck.pop();
-  for (let i = 0; i < cardsToDeal; i++) {
-    const newCard = newDeck.pop();
-    if (newCard) {
-      game.tableCards.push(newCard);
-    }
+const dealCommunityCards = (game: Poker): Poker => {
+  const count = game.stage === 1 ? 3 : 1; // flop = 3, turn/river = 1
+  const deck = game.deck.slice();
+  deck.pop(); // burn card
+  for (let i = 0; i < count; i++) {
+    const card = deck.pop();
+    if (card) game.tableCards.push(card);
   }
-  game.deck = newDeck;
+  game.deck = deck;
   return game;
 };
 
-const resetGame = (game: Poker) => {
-  game.deck = generateDeck();
-  for (let player of game.players) {
-    player.cards = [];
-    player.isActive = true;
-    player.lastBet = 0;
-  }
-  game.tableCards = [];
-  game.winner = [];
-  game.stage = 0;
-  game.currentBet = 20;
-  game.dealer = game.dealer + 1 < game.players.length ? game.dealer + 1 : 0;
-  return game;
-};
+// ──────────────────────────────────────────────────────────────────────────────
+// Showdown
+// ──────────────────────────────────────────────────────────────────────────────
 
-const determineWinner = (game: Poker) => {
-  const playerHands = game.players
-    .filter((player) => player.isActive)
-    .map(({ cards }) =>
-      Hand.solve([...game.tableCards, ...cards].map((card) => card.value))
-    );
-  const solvedCardPools = playerHands.map((hand) =>
-    hand.cards.map((card: any) => card.value + card.suit)
+const solverCards = (cards: CardType[]): string[] => cards.map((c) => c.value);
+
+const determineWinner = (game: Poker): void => {
+  const activePlayers = game.players
+    .map((p, i) => ({ player: p, index: i }))
+    .filter(({ player }) => player.isActive);
+
+  const hands = activePlayers.map(({ player }) =>
+    Hand.solve(solverCards([...game.tableCards, ...player.cards]))
   );
-  //const game1 = Hand.solve(["Ad", "As", "Jc", "Th", "2d", "3c", "Kd"]);
-  //const game2 = Hand.solve(["Ad", "As", "Jc", "Th", "2d", "Qs", "Qd"]);
-  const winningHand = Hand.winners(playerHands);
-  //game.winner = Hand.winners(playerHands);
-  let winningIndexes = [];
-  const winningCardPool = winningHand[0].cards.map(
-    (card: any) => card.value + card.suit
-  );
-  //   const winningCardPool = winningHand.cardPool;
-  for (let i = 0; i < playerHands.length; i++) {
-    console.log(
-      "Checking all card pools: ",
-      solvedCardPools[i],
-      winningCardPool,
-      winningCardPool === solvedCardPools[i]
-    );
-    if (isEqual(winningCardPool, solvedCardPools[i])) {
-      winningIndexes.push(i);
-    }
+
+  const winningHands: typeof hands = Hand.winners(hands);
+  const winningPool = winningHands[0].cards.map((c: { value: string; suit: string }) => c.value + c.suit);
+
+  const winningIndexes: number[] = [];
+  for (let i = 0; i < hands.length; i++) {
+    const pool = hands[i].cards.map((c: { value: string; suit: string }) => c.value + c.suit);
+    if (isEqual(winningPool, pool)) winningIndexes.push(activePlayers[i].index);
   }
 
   game.winner = winningIndexes;
 };
 
-const distributeWinnings = (game: Poker) => {
-  const numberOfWinners = game.winner.length;
-  const remainder = game.pot % numberOfWinners;
-  for (let winner of game.winner) {
-    game.players[winner].stack += (game.pot - remainder) / numberOfWinners;
+const distributeWinnings = (game: Poker): void => {
+  const n = game.winner.length;
+  if (n === 0) return;
+  const share = Math.floor(game.pot / n);
+  const remainder = game.pot % n;
+  for (const idx of game.winner) {
+    game.players[idx].stack += share;
   }
   game.pot = remainder;
-  //Todo: handle side pots etc;
 };
 
-export const advanceGameStage = (game: Poker) => {
-  //console.log("advancing gameStage!", game);
-  const newGame = cloneDeep(game);
-  if (newGame.stage === 0) {
-    dealPreFlop(newGame);
-    newGame.stage += 1;
-  } else if (newGame.stage < 4) {
-    dealFlopTurnRiver(newGame);
-    newGame.stage += 1;
-  } else if (newGame.stage === 4) {
-    determineWinner(newGame);
-    distributeWinnings(newGame);
-    newGame.stage += 1;
-    setTimeout(() => {
-      resetGame(newGame);
-    }, 3000);
-    // game.stage = 5;
-    //resetGame(newGame);
-  } else if (newGame.stage === 5) {
-  }
-  newGame.currentBet = 0;
-  for (let player of newGame.players) {
+const resetGame = (game: Poker): Poker => {
+  game.deck = generateDeck();
+  game.tableCards = [];
+  game.winner = [];
+  game.stage = 0;
+  game.currentBet = 0;
+  game.dealer = game.dealer + 1 < game.players.length ? game.dealer + 1 : 0;
+  for (const player of game.players) {
+    player.cards = [];
+    player.isActive = true;
     player.lastBet = 0;
     player.checked = false;
   }
-  //console.log("done advancing game stage!", game);
-  return newGame;
+  return game;
+};
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Stage machine
+// ──────────────────────────────────────────────────────────────────────────────
+
+export const advanceGameStage = (game: Poker): Poker => {
+  const next = cloneDeep(game);
+
+  if (next.stage === 0) {
+    dealPreFlop(next);
+  } else if (next.stage < 4) {
+    dealCommunityCards(next);
+  } else if (next.stage === 4) {
+    determineWinner(next);
+    distributeWinnings(next);
+  } else if (next.stage === 5) {
+    return resetGame(next);
+  }
+
+  next.stage += 1;
+  next.currentBet = 0;
+  for (const player of next.players) {
+    player.lastBet = 0;
+    player.checked = false;
+  }
+
+  return next;
 };

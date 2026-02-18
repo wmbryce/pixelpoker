@@ -1,55 +1,32 @@
-import React, { useState } from "react";
-import { CardType } from "./types";
-import styled from "@emotion/styled";
+import type { CardType } from '@pixelpoker/shared';
 
 interface Props {
   card: CardType | null;
 }
 
-const suiteIcons: any = {
-  s: `♠`,
-  h: `♥`,
-  c: `♣`,
-  d: `♦`,
+const SUITE_ICONS: Record<string, string> = {
+  s: '♠',
+  h: '♥',
+  c: '♣',
+  d: '♦',
 };
 
-let CardContainer = styled.div`
-  border: 1px solid black;
-  border-radius: 4px;
-  padding: 0px 6px;
-  margin: 0px 6px;
-  width: 60px;
-  height: 100px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  background-color: white;
-`;
-
-let BackOfCardContainer = styled.div`
-  border: 1px solid red;
-  border-radius: 4px;
-  padding: 0px 6px;
-  margin: 0px 6px;
-  width: 60px;
-  height: 100px;
-  display: flex;
-  background-color: red;
-`;
-
-let CardText = styled.div((props) => ({
-  color: props.color,
-}));
-
 function Card({ card }: Props) {
-  return card ? (
-    <CardContainer>
-      <CardText
-        color={card.suite === "h" || card.suite === "d" ? "red" : "black"}
-      >{`${suiteIcons[card.suite]} ${card.label}`}</CardText>
-    </CardContainer>
-  ) : (
-    <BackOfCardContainer />
+  if (!card) {
+    return <div className="border border-red-600 rounded w-16 h-24 bg-red-600 mx-1.5" />;
+  }
+
+  const isRed = card.suite === 'h' || card.suite === 'd';
+
+  return (
+    <div className="border border-gray-400 rounded w-16 h-24 flex flex-col justify-center items-center bg-white mx-1.5 shadow-sm">
+      <span className={`text-lg font-bold ${isRed ? 'text-red-600' : 'text-gray-900'}`}>
+        {SUITE_ICONS[card.suite]}
+      </span>
+      <span className={`text-sm font-semibold ${isRed ? 'text-red-600' : 'text-gray-900'}`}>
+        {card.label}
+      </span>
+    </div>
   );
 }
 

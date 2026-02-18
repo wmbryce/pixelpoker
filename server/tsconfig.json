@@ -1,17 +1,18 @@
 {
   "compilerOptions": {
-    "module": "es2015",
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
     "esModuleInterop": true,
-    "target": "es6",
-    "noImplicitAny": false,
-    "moduleResolution": "node",
-    "sourceMap": true,
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "skipLibCheck": true,
     "outDir": "dist",
-    "baseUrl": ".",
-    "strict": false,
-    "paths": {
-      "*": ["node_modules/*"]
-    }
+    "sourceMap": true,
+    "resolveJsonModule": true
   },
-  "include": ["*"]
+  "include": ["."],
+  "exclude": ["__tests__", "node_modules", "dist"]
 }

@@ -1,82 +1,147 @@
-const express = require("express");
-const http = require("http");
-const socket = require("socket.io");
-const color = require("colors");
-const cors = require("cors");
-const {
-  get_Current_User,
-  user_Disconnect,
-  join_User,
-} = require("./controllers/users");
+import express from 'express';
+import { createServer } from 'http';
+import { Server } from 'socket.io';
+import cors from 'cors';
+import chalk from 'chalk';
+import type {
+  Poker,
+  ServerToClientEvents,
+  ClientToServerEvents,
+  GameAction,
+} from './controllers/types';
+import { initializeGame, createPlayer, advanceGameStage } from './controllers/gameplay';
+import { raise, call, fold, nextPlayer } from './controllers/actions';
 
-const port = 8000;
+const PORT = 8000;
+const CORS_ORIGIN = 'http://localhost:3000';
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Express + Socket.IO setup
+// ──────────────────────────────────────────────────────────────────────────────
 
 const app = express();
-const httpServer = http.createServer(app);
-const io = new socket.Server(httpServer, {
-  /* options */
-  cors: {
-    origin: "http://localhost:3000",
-  },
+const httpServer = createServer(app);
+const io = new Server<ClientToServerEvents, ServerToClientEvents>(httpServer, {
+  cors: { origin: CORS_ORIGIN },
 });
 
-httpServer.listen(
-  port,
-  console.log(`Server is running on the port no: ${port} `, color.green)
-);
+app.use(cors({ origin: CORS_ORIGIN }));
+app.use(express.json());
 
-//initializing the socket io connection
-io.on("connection", (socket) => {
-  //for a new user joining the room
-  socket.on("joinRoom", ({ username, roomname }) => {
-    //* create user
-    console.log("Join room! Wooo:", username, roomname);
-    const p_user = join_User(socket.id, username, roomname);
-    console.log(socket.id, "=id");
-    socket.join(p_user.room);
+// REST health check
+app.get('/health', (_req, res) => {
+  res.json({ status: 'ok', rooms: rooms.size });
+});
 
-    //display a welcome message to the user who have joined a room
-    socket.emit("message", {
-      userId: p_user.id,
-      username: p_user.username,
-      text: `Welcome ${p_user.username}`,
-    });
+// ──────────────────────────────────────────────────────────────────────────────
+// In-memory state
+// ──────────────────────────────────────────────────────────────────────────────
 
-    //displays a joined room message to all other room users except that particular user
-    socket.broadcast.to(p_user.room).emit("message", {
-      userId: p_user.id,
-      username: p_user.username,
-      text: `${p_user.username} has joined the chat`,
-    });
+const rooms = new Map<string, Poker>();
 
-    socket.emit("game", {
-      userId: p_user.id,
-    });
+interface PlayerSession {
+  room: string;
+  playerIndex: number;
+  name: string;
+}
+const sessions = new Map<string, PlayerSession>();
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Helper
+// ──────────────────────────────────────────────────────────────────────────────
+
+const broadcastGame = (room: string) => {
+  const game = rooms.get(room);
+  if (game) io.to(room).emit('updateGame', game);
+};
+
+const processGameAction = (game: Poker, action: GameAction): Poker | null => {
+  const { type, playerIndex, bet } = action;
+
+  if (type === 'advance') {
+    return advanceGameStage(game);
+  }
+
+  let result: Poker | null = null;
+
+  if (type === 'raise' && bet !== undefined) {
+    ({ result } = raise(game, playerIndex, bet));
+  } else if (type === 'call') {
+    ({ result } = call(game, playerIndex));
+  } else if (type === 'fold') {
+    ({ result } = fold(game, playerIndex));
+  }
+
+  if (result) {
+    result.actionOn = nextPlayer(result, playerIndex);
+  }
+
+  return result;
+};
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Socket.IO event handlers
+// ──────────────────────────────────────────────────────────────────────────────
+
+io.on('connection', (socket) => {
+  console.log(chalk.green(`+ connected: ${socket.id}`));
+
+  socket.on('joinRoom', ({ username, room }) => {
+    socket.join(room);
+
+    if (!rooms.has(room)) {
+      rooms.set(room, initializeGame());
+    }
+
+    const game = rooms.get(room)!;
+    const playerIndex = game.players.length;
+    game.players.push(createPlayer(socket.id, username));
+    sessions.set(socket.id, { room, playerIndex, name: username });
+
+    // Tell this socket which player index they are
+    socket.emit('roomJoined', { playerIndex, game });
+
+    socket.broadcast
+      .to(room)
+      .emit('message', { userId: socket.id, username: 'System', text: `${username} joined` });
+
+    broadcastGame(room);
+    console.log(chalk.blue(`  ${username} joined room "${room}" as player ${playerIndex}`));
   });
 
-  //user sending message
-  socket.on("chat", (text) => {
-    //gets the room user and the message sent
-    const p_user = get_Current_User(socket.id);
-
-    io.to(p_user.room).emit("message", {
-      userId: p_user.id,
-      username: p_user.username,
-      text: text,
-    });
+  socket.on('chat', (text) => {
+    const session = sessions.get(socket.id);
+    if (!session) return;
+    io.to(session.room).emit('message', { userId: socket.id, username: session.name, text });
   });
 
-  //when the user exits the room
-  socket.on("disconnect", () => {
-    //the user is deleted from array of users and a left room message displayed
-    const p_user = user_Disconnect(socket.id);
+  socket.on('gameAction', (action) => {
+    const session = sessions.get(socket.id);
+    if (!session) return;
 
-    if (p_user) {
-      io.to(p_user.room).emit("message", {
-        userId: p_user.id,
-        username: p_user.username,
-        text: `${p_user.username} has left the room`,
-      });
+    const game = rooms.get(session.room);
+    if (!game) return;
+
+    const updated = processGameAction(game, action);
+    if (updated) {
+      rooms.set(session.room, updated);
+      broadcastGame(session.room);
     }
   });
+
+  socket.on('disconnect', () => {
+    const session = sessions.get(socket.id);
+    sessions.delete(socket.id);
+    if (session) {
+      console.log(chalk.red(`- disconnected: ${session.name} (${socket.id})`));
+    }
+  });
+});
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Start
+// ──────────────────────────────────────────────────────────────────────────────
+
+httpServer.listen(PORT, () => {
+  console.log(chalk.green(`Server listening on :${PORT}`));
 });

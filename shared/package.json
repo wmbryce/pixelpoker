@@ -1,0 +1,9 @@
+{
+  "name": "@pixelpoker/shared",
+  "version": "1.0.0",
+  "module": "./src/types.ts",
+  "types": "./src/types.ts",
+  "exports": {
+    ".": "./src/types.ts"
+  }
+}

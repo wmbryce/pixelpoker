@@ -1,61 +1,55 @@
-import React, { useState, useEffect } from "react";
-import { CardType } from "./types";
-import Hand from "./Hand";
-import styled from "@emotion/styled";
+import { useState } from 'react';
 
 interface Props {
-  setupRoom: any;
+  setupRoom: (userId: string, roomId: string) => void;
 }
 
-let WelcomeContainer = styled.div`
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  align-items: center;
-  margin: 180px 100px;
-  padding: 30px;
-  height: 180px;
-  border: 1px solid black;
-  border-radius: 20px;
-`;
+function WelcomeView({ setupRoom }: Props) {
+  const [userId, setUserId] = useState('');
+  const [roomId, setRoomId] = useState('');
+  const [errors, setErrors] = useState<string[]>([]);
 
-function WelcomeView({ setupRoom }: Props): JSX.Element {
-  //activates joinRoom function defined on the backend
-  const [userId, setUserId] = useState("");
-  const [roomId, setRoomId] = useState("");
-  const [errors, setErrors] = useState({});
+  const handleJoin = () => {
+    const newErrors: string[] = [];
+    if (userId.trim().length === 0) newErrors.push('Username is required.');
+    if (roomId.trim().length === 0) newErrors.push('Room name is required.');
+    setErrors(newErrors);
+    if (newErrors.length === 0) setupRoom(userId.trim(), roomId.trim());
+  };
 
-  const verifyAndSetupUser = () => {
-    const newErrors = [];
-    if (userId.length === 0) {
-      newErrors.push("User Id must have a length greater than zero.");
-    }
-    if (roomId.length === 0) {
-      newErrors.push("Room Id must have a length greater than zero.");
-    }
-    if (newErrors.length === 0) {
-      setupRoom(userId, roomId);
-      setErrors(newErrors);
-    } else {
-      setErrors(newErrors);
-    }
+  const handleKey = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') handleJoin();
   };
 
   return (
-    <WelcomeContainer>
-      <h1>Welcome</h1>
+    <div className="flex flex-col gap-4 justify-center items-center mx-auto mt-44 p-8 w-80 border border-gray-300 rounded-2xl shadow-md">
+      <h1 className="text-2xl font-bold">Pixel Poker</h1>
       <input
-        placeholder="Input your user name"
+        className="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
+        placeholder="Username"
         value={userId}
         onChange={(e) => setUserId(e.target.value)}
+        onKeyDown={handleKey}
       />
       <input
-        placeholder="Input the room name"
+        className="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
+        placeholder="Room name"
         value={roomId}
         onChange={(e) => setRoomId(e.target.value)}
+        onKeyDown={handleKey}
       />
-      <button onClick={verifyAndSetupUser}>Join</button>
-    </WelcomeContainer>
+      {errors.map((err, i) => (
+        <p key={i} className="text-red-500 text-sm self-start">
+          {err}
+        </p>
+      ))}
+      <button
+        className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 transition-colors"
+        onClick={handleJoin}
+      >
+        Join
+      </button>
+    </div>
   );
 }
 

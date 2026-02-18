@@ -1,27 +1,18 @@
-import React, { useState } from "react";
-import { CardType } from "./types";
-import Card from "./Card";
-import styled from "@emotion/styled";
-
-let HandContainer = styled.div`
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  justify-content: center;
-`;
+import Card from './Card';
+import type { CardType } from '@pixelpoker/shared';
 
 interface Props {
-  hand: Array<CardType>;
+  hand: CardType[];
   active?: boolean;
 }
 
-function Hand({ hand = [], active }: Props): JSX.Element {
+function Hand({ hand = [], active }: Props) {
   return (
-    <HandContainer>
-      {hand.map((cardItem, index) => (
-        <Card key={index} card={active ? cardItem : null} />
+    <div className="flex flex-row items-center justify-center">
+      {hand.map((card, index) => (
+        <Card key={index} card={active ? card : null} />
       ))}
-    </HandContainer>
+    </div>
   );
 }
 
