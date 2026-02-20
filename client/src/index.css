@@ -1,3 +1,80 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* ── Fonts ── */
+@font-face {
+  font-family: 'VCR OSD Mono';
+  src: url('./assets/VCR_OSD_MONO.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Outrun Future';
+  src: url('./assets/Outrun future.otf') format('opentype');
+  font-weight: normal;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Outrun Future';
+  src: url('./assets/Outrun future Bold.otf') format('opentype');
+  font-weight: bold;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Outrun Future';
+  src: url('./assets/Outrun future Bold Italic.otf') format('opentype');
+  font-weight: bold;
+  font-style: italic;
+}
+
+body {
+  background-color: #0A0E1A;
+  color: #ffffff;
+  font-family: 'VCR OSD Mono', monospace;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Outrun Future', sans-serif;
+}
+
+/* ── CRT scanline overlay ── */
+body::after {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 3px,
+    rgba(0, 0, 0, 0.10) 3px,
+    rgba(0, 0, 0, 0.10) 4px
+  );
+  pointer-events: none;
+  z-index: 9999;
+}
+
+/* ── Pixel 3D button press ── */
+.btn-pixel {
+  box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.65);
+  transition: transform 0.05s ease, box-shadow 0.05s ease;
+}
+.btn-pixel:not(:disabled):active {
+  transform: translate(4px, 4px);
+  box-shadow: none;
+}
+
+/* ── Table grid texture ── */
+.table-grid {
+  background-color: #091929;
+  background-image:
+    linear-gradient(rgba(0, 212, 255, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 212, 255, 0.04) 1px, transparent 1px);
+  background-size: 28px 28px;
+}

@@ -35,43 +35,53 @@ function ChatBox({ username, room }: Props) {
 
   return (
     <div className="w-11/12">
-      <h2 className="text-base font-semibold mb-3">
-        {username} <span className="text-xs text-gray-500 font-normal">in {room}</span>
-      </h2>
+      {/* Header */}
+      <div className="flex items-center gap-2 mb-3 pb-2 border-b border-vice-violet/30">
+        <span className="text-vice-cyan text-xs tracking-widest uppercase font-bold">{username}</span>
+        <span className="text-vice-violet">│</span>
+        <span className="text-vice-muted text-xs tracking-widest uppercase">{room}</span>
+      </div>
 
-      <div className="flex flex-col gap-2 max-h-64 overflow-y-auto mb-4 pr-1">
+      {/* Messages */}
+      <div className="flex flex-col gap-2 max-h-56 overflow-y-auto mb-4 pr-1">
         {messages.map((msg, i) => {
           const isMine = msg.username === username;
           return (
             <div
               key={i}
-              className={`flex flex-col border border-gray-300 rounded px-4 py-2 max-w-[70%] ${
-                isMine ? 'self-end items-end' : 'self-start items-start'
+              className={`flex flex-col px-3 py-2 max-w-[72%] border ${
+                isMine
+                  ? 'self-end items-end bg-vice-pink/15 border-vice-pink/40'
+                  : 'self-start items-start bg-vice-bg border-vice-cyan/20'
               }`}
             >
-              <p className="text-sm text-gray-900">{msg.text}</p>
-              <p className="text-xs text-gray-400">{msg.username}</p>
+              <p className="text-sm text-white">{msg.text}</p>
+              <p className="text-xs text-vice-muted/70 mt-0.5">{msg.username}</p>
             </div>
           );
         })}
         <div ref={bottomRef} />
       </div>
 
+      {/* Input row */}
       <div className="flex gap-2">
-        <input
-          className="flex-1 border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-          placeholder="Type a message…"
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') sendData();
-          }}
-        />
+        <div className="flex-1 flex items-center bg-vice-bg border border-vice-muted/50 focus-within:border-vice-cyan transition-colors">
+          <span className="pl-2 text-vice-cyan text-sm select-none">▶</span>
+          <input
+            className="flex-1 bg-transparent px-2 py-2 text-sm text-white placeholder-vice-muted/50 focus:outline-none uppercase tracking-wider"
+            placeholder="TYPE MESSAGE…"
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') sendData();
+            }}
+          />
+        </div>
         <button
-          className="bg-blue-600 text-white px-4 py-2 rounded text-sm hover:bg-blue-700 transition-colors"
+          className="bg-vice-pink text-white px-5 py-2 text-xs font-bold tracking-widest uppercase btn-pixel hover:brightness-110"
           onClick={sendData}
         >
-          Send
+          SEND
         </button>
       </div>
     </div>

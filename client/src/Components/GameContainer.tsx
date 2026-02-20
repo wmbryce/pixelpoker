@@ -11,8 +11,8 @@ function GameContainer() {
 
   if (!game) {
     return (
-      <div className="flex justify-center items-center h-64 text-gray-500 text-lg">
-        Waiting for game to start…
+      <div className="flex justify-center items-center h-64 text-vice-muted tracking-widest animate-blink">
+        ▸ WAITING FOR PLAYERS…
       </div>
     );
   }
@@ -22,18 +22,23 @@ function GameContainer() {
     socket.emit('gameAction', action);
   };
 
+  const stageLabel = game.stage < 4
+    ? `▶ DEAL ${GAME_STAGES[game.stage]}`
+    : GAME_STAGES[game.stage];
+
   return (
     <div className="flex flex-col justify-center my-4 text-center">
       <Table tableCards={game.tableCards} pot={game.pot} currentBet={game.currentBet} />
+
       <div>
         <button
-          className="bg-green-600 text-white px-5 py-2 rounded my-2 hover:bg-green-700 transition-colors"
+          className="bg-vice-violet text-white px-8 py-3 my-2 font-bold tracking-widest uppercase text-sm btn-pixel hover:brightness-110 transition-all"
           onClick={advanceStage}
         >
-          {game.stage < 4 ? `Deal ${GAME_STAGES[game.stage]}` : GAME_STAGES[game.stage]}
+          {stageLabel}
         </button>
 
-        <div className="flex flex-row justify-around items-start my-4 flex-wrap gap-4">
+        <div className="flex flex-row justify-around items-start my-4 flex-wrap gap-4 px-4">
           {game.players.map((player, index) => (
             <Player
               key={player.id}

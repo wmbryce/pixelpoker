@@ -32,7 +32,7 @@ function App() {
   }, [setGame, setMyPlayerIndex]);
 
   return (
-    <div className="flex flex-col justify-between w-full my-4">
+    <div className="flex flex-col justify-between w-full my-4 min-h-screen bg-vice-bg text-white">
       {username && room ? (
         <>
           <GameContainer />

@@ -16,11 +16,17 @@ interface Props {
 }
 
 function seatLabel(index: number, dealer: number, numPlayers: number): string {
-  if (index === dealer) return 'Dealer';
-  if (index === (dealer + 1) % numPlayers) return 'Small Blind';
-  if (index === (dealer + 2) % numPlayers) return 'Big Blind';
+  if (index === dealer) return 'DEALER';
+  if (index === (dealer + 1) % numPlayers) return 'SB';
+  if (index === (dealer + 2) % numPlayers) return 'BB';
   return '';
 }
+
+const LABEL_COLORS: Record<string, string> = {
+  DEALER: 'bg-vice-violet/80 text-white',
+  SB:     'bg-vice-cyan/20 text-vice-cyan border border-vice-cyan/50',
+  BB:     'bg-vice-pink/20 text-vice-pink border border-vice-pink/50',
+};
 
 function Player({
   player,
@@ -35,38 +41,64 @@ function Player({
   const [bet, setBet] = useState(20);
 
   const isMyTurn = isMe && actionOn === index && player.isActive;
+  const isWinner = winner.includes(index);
+  const label = seatLabel(index, dealer, numPlayers);
 
   const sendAction = (type: GameAction['type']) => {
     const action: GameAction = { type, playerIndex: index, bet };
     socket.emit('gameAction', action);
   };
 
-  const label = seatLabel(index, dealer, numPlayers);
-  const isWinner = winner.includes(index);
-
   return (
     <div
-      className={`flex flex-col items-center gap-1 p-3 rounded-lg border-2 min-w-[160px] ${
-        isMyTurn ? 'border-yellow-400 bg-yellow-50' : 'border-gray-200 bg-white'
-      } ${!player.isActive ? 'opacity-50' : ''}`}
+      className={`flex flex-col items-center gap-2 p-3 border-2 min-w-[168px] transition-all duration-200 ${
+        isMyTurn
+          ? 'border-vice-cyan bg-vice-cyan/5 animate-glow-pulse'
+          : isWinner
+          ? 'border-vice-pink bg-vice-pink/5'
+          : 'border-vice-surface bg-vice-surface'
+      } ${!player.isActive ? 'opacity-40' : ''}`}
+      style={
+        !isMyTurn && !isWinner
+          ? { boxShadow: '4px 4px 0 rgba(0,0,0,0.5)' }
+          : undefined
+      }
     >
-      <h2 className="text-base font-bold">
-        {player.name}
-        {isMe && <span className="ml-1 text-xs text-blue-500">(you)</span>}
-      </h2>
-      {label && <p className="text-xs text-gray-500">{label}</p>}
-      <p className="text-sm font-semibold">${player.stack}</p>
+      {/* Name row */}
+      <div className="flex items-center gap-2 w-full justify-between">
+        <span className="text-sm font-bold text-white tracking-wide uppercase truncate">
+          {player.name}
+          {isMe && <span className="ml-1 text-vice-cyan text-xs">(you)</span>}
+        </span>
+        {label && (
+          <span className={`text-xs px-1.5 py-0.5 font-bold tracking-wider ${LABEL_COLORS[label] ?? ''}`}>
+            {label}
+          </span>
+        )}
+      </div>
+
+      {/* Stack */}
+      <p
+        className="text-2xl font-bold tracking-wider w-full text-left"
+        style={{ color: '#00D4FF', textShadow: isMyTurn ? '0 0 8px #00D4FF80' : 'none' }}
+      >
+        ${player.stack}
+      </p>
 
       <Hand hand={player.cards} active={player.isActive} />
 
       {isWinner && (
-        <span className="text-yellow-500 font-bold text-sm">Winner!</span>
+        <span className="text-sm font-bold tracking-widest uppercase animate-winner-flash">
+          ★ WINNER ★
+        </span>
       )}
 
+      {/* Action controls (only for me) */}
       {isMe && (
-        <div className="flex flex-col items-center gap-2 mt-2">
-          <div className="flex items-center gap-2">
-            <label className="text-xs text-gray-600">Bet:</label>
+        <div className="flex flex-col items-stretch gap-2 mt-1 w-full">
+          {/* Bet amount */}
+          <div className="flex items-center gap-2 border border-vice-muted/30 px-2 py-1 bg-vice-bg">
+            <label className="text-xs text-vice-muted uppercase tracking-wider whitespace-nowrap">Bet $</label>
             <input
               type="number"
               min={currentBet}
@@ -74,29 +106,30 @@ function Player({
               value={bet}
               disabled={!isMyTurn}
               onChange={(e) => setBet(Number.parseInt(e.target.value, 10))}
-              className="w-20 border border-gray-300 rounded px-2 py-1 text-sm disabled:opacity-40"
+              className="flex-1 min-w-0 bg-transparent text-white text-sm text-right disabled:opacity-30 focus:outline-none"
             />
           </div>
+
           <button
             onClick={() => sendAction('raise')}
             disabled={!isMyTurn}
-            className="w-28 bg-blue-600 text-white text-sm py-1 rounded hover:bg-blue-700 disabled:opacity-40 transition-colors"
+            className="w-full bg-vice-pink text-white text-xs py-2 font-bold tracking-widest uppercase btn-pixel disabled:opacity-30 hover:brightness-110"
           >
-            Raise {bet}
+            RAISE ${bet}
           </button>
           <button
             onClick={() => sendAction('call')}
             disabled={!isMyTurn}
-            className="w-28 bg-gray-600 text-white text-sm py-1 rounded hover:bg-gray-700 disabled:opacity-40 transition-colors"
+            className="w-full bg-vice-cyan text-vice-bg text-xs py-2 font-bold tracking-widest uppercase btn-pixel disabled:opacity-30 hover:brightness-110"
           >
-            Check / Call
+            CHECK / CALL
           </button>
           <button
             onClick={() => sendAction('fold')}
             disabled={!isMyTurn}
-            className="w-28 bg-red-600 text-white text-sm py-1 rounded hover:bg-red-700 disabled:opacity-40 transition-colors"
+            className="w-full bg-vice-surface border border-vice-muted/50 text-vice-muted text-xs py-2 font-bold tracking-widest uppercase btn-pixel disabled:opacity-30 hover:border-vice-pink hover:text-vice-pink transition-colors"
           >
-            Fold
+            FOLD
           </button>
         </div>
       )}
