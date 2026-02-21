@@ -37,7 +37,7 @@ function ChatBox({ username, room }: Props) {
     <div className="w-11/12">
       {/* Header */}
       <div className="flex items-center gap-2 mb-3 pb-2 border-b border-vice-violet/30">
-        <span className="text-vice-cyan text-xs tracking-widest uppercase font-bold">{username}</span>
+        <span className="text-vice-gold text-xs tracking-widest uppercase font-bold">{username}</span>
         <span className="text-vice-violet">│</span>
         <span className="text-vice-muted text-xs tracking-widest uppercase">{room}</span>
       </div>
@@ -65,8 +65,8 @@ function ChatBox({ username, room }: Props) {
 
       {/* Input row */}
       <div className="flex gap-2">
-        <div className="flex-1 flex items-center bg-vice-bg border border-vice-muted/50 focus-within:border-vice-cyan transition-colors">
-          <span className="pl-2 text-vice-cyan text-sm select-none">▶</span>
+        <div className="flex-1 flex items-center bg-vice-bg border border-vice-muted/50 focus-within:border-vice-gold transition-colors">
+          <span className="pl-2 text-vice-gold text-sm select-none">▶</span>
           <input
             className="flex-1 bg-transparent px-2 py-2 text-sm text-white placeholder-vice-muted/50 focus:outline-none uppercase tracking-wider"
             placeholder="TYPE MESSAGE…"

@@ -14,8 +14,8 @@ function Table({ tableCards, pot, currentBet }: Props) {
         ◈ TABLE
       </p>
       <div
-        className="h-52 flex flex-col justify-center items-center border-2 border-vice-cyan/40 p-4 gap-4 table-grid relative"
-        style={{ boxShadow: '0 0 24px #00D4FF18, inset 0 0 40px rgba(0,0,0,0.4)' }}
+        className="h-52 flex flex-col justify-center items-center border-2 border-vice-gold/30 p-4 gap-4 table-grid relative"
+        style={{ boxShadow: '0 0 24px #FFB80015, inset 0 0 40px rgba(0,0,0,0.4)' }}
       >
         <Hand hand={tableCards} active={true} />
 
@@ -23,8 +23,8 @@ function Table({ tableCards, pot, currentBet }: Props) {
           <div className="flex flex-col items-center">
             <span className="text-xs text-vice-muted/70 tracking-widest uppercase">Pot</span>
             <span
-              className="text-vice-cyan text-2xl font-bold tracking-wider"
-              style={{ textShadow: '0 0 10px #00D4FF80' }}
+              className="text-vice-gold text-2xl font-bold tracking-wider"
+              style={{ textShadow: '0 0 10px #FFB80080' }}
             >
               ${pot}
             </span>

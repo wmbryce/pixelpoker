@@ -28,22 +28,28 @@ function WelcomeView({ setupRoom }: Props) {
     >
       {/* Title */}
       <div className="text-center space-y-2 w-full">
+        <div className="flex justify-center gap-3 text-vice-gold/40 text-sm mb-1">
+          <span>♠</span><span>♥</span><span>♣</span><span>♦</span>
+        </div>
         <h1 className="text-vice-pink text-3xl font-bold tracking-widest uppercase leading-snug">
-          ♦ PIXEL POKER ♦
+          PIXEL POKER
         </h1>
-        <p className="text-vice-cyan text-lg tracking-widest opacity-80">
+        <p className="text-vice-gold text-base tracking-widest opacity-70">
           INSERT COIN TO PLAY
           <span className="animate-blink ml-0.5">█</span>
         </p>
+        <div className="flex justify-center gap-3 text-vice-gold/40 text-sm mt-1">
+          <span>♦</span><span>♣</span><span>♥</span><span>♠</span>
+        </div>
         <div className="border-t border-vice-violet/40 pt-2" />
       </div>
 
       {/* Inputs */}
       <div className="w-full flex flex-col gap-3">
         <div className="relative">
-          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-vice-cyan text-base select-none">▶</span>
+          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-vice-gold text-base select-none">▶</span>
           <input
-            className="w-full bg-vice-bg border-2 border-vice-muted pl-7 pr-3 py-2 text-white uppercase tracking-wider placeholder-vice-muted/50 focus:outline-none focus:border-vice-cyan transition-colors"
+            className="w-full bg-vice-bg border-2 border-vice-muted pl-7 pr-3 py-2 uppercase tracking-wider placeholder-vice-muted/50 focus:outline-none focus:border-vice-gold transition-colors"
             placeholder="PLAYER NAME"
             value={userId}
             onChange={(e) => setUserId(e.target.value)}
@@ -51,9 +57,9 @@ function WelcomeView({ setupRoom }: Props) {
           />
         </div>
         <div className="relative">
-          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-vice-cyan text-base select-none">▶</span>
+          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-vice-gold text-base select-none">▶</span>
           <input
-            className="w-full bg-vice-bg border-2 border-vice-muted pl-7 pr-3 py-2 text-white uppercase tracking-wider placeholder-vice-muted/50 focus:outline-none focus:border-vice-cyan transition-colors"
+            className="w-full bg-vice-bg border-2 border-vice-muted pl-7 pr-3 py-2 uppercase tracking-wider placeholder-vice-muted/50 focus:outline-none focus:border-vice-gold transition-colors"
             placeholder="ROOM CODE"
             value={roomId}
             onChange={(e) => setRoomId(e.target.value)}

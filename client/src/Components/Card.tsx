@@ -31,8 +31,8 @@ function Card({ card }: Props) {
 
   return (
     <div
-      className="w-14 h-20 mx-1 bg-gray-50 border-2 border-gray-900 relative flex flex-col animate-card-deal"
-      style={{ boxShadow: '3px 3px 0 rgba(0,0,0,0.70)' }}
+      className="w-14 h-20 mx-1 border-2 border-gray-900 relative flex flex-col animate-card-deal"
+      style={{ background: '#FFF8F0', boxShadow: '3px 3px 0 rgba(0,0,0,0.70)' }}
     >
       {/* Top-left pip */}
       <div

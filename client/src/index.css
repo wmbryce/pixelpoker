@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -10,35 +12,14 @@
   font-style: normal;
 }
 
-@font-face {
-  font-family: 'Outrun Future';
-  src: url('./assets/Outrun future.otf') format('opentype');
-  font-weight: normal;
-  font-style: normal;
-}
-
-@font-face {
-  font-family: 'Outrun Future';
-  src: url('./assets/Outrun future Bold.otf') format('opentype');
-  font-weight: bold;
-  font-style: normal;
-}
-
-@font-face {
-  font-family: 'Outrun Future';
-  src: url('./assets/Outrun future Bold Italic.otf') format('opentype');
-  font-weight: bold;
-  font-style: italic;
-}
-
 body {
   background-color: #0A0E1A;
-  color: #ffffff;
+  color: #F5EFE0;
   font-family: 'VCR OSD Mono', monospace;
 }
 
 h1, h2, h3, h4, h5, h6 {
-  font-family: 'Outrun Future', sans-serif;
+  font-family: 'Press Start 2P', monospace;
 }
 
 /* ── CRT scanline overlay ── */
@@ -70,11 +51,11 @@ body::after {
   box-shadow: none;
 }
 
-/* ── Table grid texture ── */
+/* ── Table felt texture ── */
 .table-grid {
-  background-color: #091929;
+  background-color: #091a0f;
   background-image:
-    linear-gradient(rgba(0, 212, 255, 0.04) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(0, 212, 255, 0.04) 1px, transparent 1px);
+    linear-gradient(rgba(255, 184, 0, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 184, 0, 0.03) 1px, transparent 1px);
   background-size: 28px 28px;
 }

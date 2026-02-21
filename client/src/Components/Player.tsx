@@ -53,7 +53,7 @@ function Player({
     <div
       className={`flex flex-col items-center gap-2 p-3 border-2 min-w-[168px] transition-all duration-200 ${
         isMyTurn
-          ? 'border-vice-cyan bg-vice-cyan/5 animate-glow-pulse'
+          ? 'border-vice-gold bg-vice-gold/5 animate-glow-pulse'
           : isWinner
           ? 'border-vice-pink bg-vice-pink/5'
           : 'border-vice-surface bg-vice-surface'
@@ -68,7 +68,7 @@ function Player({
       <div className="flex items-center gap-2 w-full justify-between">
         <span className="text-sm font-bold text-white tracking-wide uppercase truncate">
           {player.name}
-          {isMe && <span className="ml-1 text-vice-cyan text-xs">(you)</span>}
+          {isMe && <span className="ml-1 text-vice-gold text-xs">(you)</span>}
         </span>
         {label && (
           <span className={`text-xs px-1.5 py-0.5 font-bold tracking-wider ${LABEL_COLORS[label] ?? ''}`}>
@@ -80,7 +80,7 @@ function Player({
       {/* Stack */}
       <p
         className="text-2xl font-bold tracking-wider w-full text-left"
-        style={{ color: '#00D4FF', textShadow: isMyTurn ? '0 0 8px #00D4FF80' : 'none' }}
+        style={{ color: '#FFB800', textShadow: isMyTurn ? '0 0 8px #FFB80080' : 'none' }}
       >
         ${player.stack}
       </p>
