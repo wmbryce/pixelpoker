@@ -27,6 +27,8 @@ export const initializeGame = (): Poker => ({
   deck: generateDeck(),
   players: [],
   winner: [],
+  winnerHandName: '',
+  winnerCards: [],
   actionOn: 0,
   currentBet: 0,
   dealer: 0,
@@ -69,6 +71,9 @@ const dealCommunityCards = (game: Poker): Poker => {
 
 const solverCards = (cards: CardType[]): string[] => cards.map((c) => c.value);
 
+// pokersolver uses 'T' for ten; our CardType.value uses '10'.
+const pokerRankToLabel = (r: string) => (r === 'T' ? '10' : r);
+
 const determineWinner = (game: Poker): void => {
   const activePlayers = game.players
     .map((p, i) => ({ player: p, index: i }))
@@ -88,6 +93,10 @@ const determineWinner = (game: Poker): void => {
   }
 
   game.winner = winningIndexes;
+  game.winnerHandName = winningHands[0].name as string;
+  game.winnerCards = winningHands[0].cards.map(
+    (c: { value: string; suit: string }) => pokerRankToLabel(c.value) + c.suit,
+  );
 };
 
 const distributeWinnings = (game: Poker): void => {
@@ -105,6 +114,8 @@ const resetGame = (game: Poker): Poker => {
   game.deck = generateDeck();
   game.tableCards = [];
   game.winner = [];
+  game.winnerHandName = '';
+  game.winnerCards = [];
   game.stage = 0;
   game.currentBet = 0;
   game.dealer = game.dealer + 1 < game.players.length ? game.dealer + 1 : 0;

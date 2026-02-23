@@ -2,6 +2,7 @@ import type { CardType } from '@pixelpoker/shared';
 
 interface Props {
   card: CardType | null;
+  highlighted?: boolean; // true = winning card, false = non-winning, undefined = neutral
 }
 
 const SUITE_ICONS: Record<string, string> = {
@@ -11,7 +12,7 @@ const SUITE_ICONS: Record<string, string> = {
   d: '♦',
 };
 
-function Card({ card }: Props) {
+function Card({ card, highlighted }: Props) {
   if (!card) {
     return (
       <div
@@ -29,10 +30,21 @@ function Card({ card }: Props) {
   const color = isRed ? '#FF2D78' : '#111827';
   const suit = SUITE_ICONS[card.suite];
 
+  const dimmed = highlighted === false;
+  const glowing = highlighted === true;
+
   return (
     <div
-      className="w-14 h-20 mx-1 border-2 border-gray-900 relative flex flex-col animate-card-deal"
-      style={{ background: '#FFF8F0', boxShadow: '3px 3px 0 rgba(0,0,0,0.70)' }}
+      className={`w-14 h-20 mx-1 border-2 relative flex flex-col animate-card-deal transition-all duration-300 ${
+        dimmed  ? 'opacity-30 border-gray-900' :
+        glowing ? 'border-vice-gold'           : 'border-gray-900'
+      }`}
+      style={{
+        background: '#FFF8F0',
+        boxShadow: glowing
+          ? '3px 3px 0 rgba(0,0,0,0.70), 0 0 10px #FFB80080, 0 0 0 1px #FFB800'
+          : '3px 3px 0 rgba(0,0,0,0.70)',
+      }}
     >
       {/* Top-left pip */}
       <div

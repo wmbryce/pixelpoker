@@ -5,9 +5,10 @@ interface Props {
   tableCards: CardType[];
   pot: number;
   currentBet: number;
+  winnerCards: string[];
 }
 
-function Table({ tableCards, pot, currentBet }: Props) {
+function Table({ tableCards, pot, currentBet, winnerCards }: Props) {
   return (
     <div className="mx-16 mb-5">
       <p className="text-xs font-bold mb-2 tracking-widest uppercase text-vice-muted/70">
@@ -17,7 +18,11 @@ function Table({ tableCards, pot, currentBet }: Props) {
         className="h-52 flex flex-col justify-center items-center border-2 border-vice-gold/30 p-4 gap-4 table-grid relative"
         style={{ boxShadow: '0 0 24px #FFB80015, inset 0 0 40px rgba(0,0,0,0.4)' }}
       >
-        <Hand hand={tableCards} active={true} />
+        <Hand
+          hand={tableCards}
+          active={true}
+          winnerCardValues={winnerCards.length > 0 ? winnerCards : undefined}
+        />
 
         <div className="flex items-center gap-8">
           <div className="flex flex-col items-center">

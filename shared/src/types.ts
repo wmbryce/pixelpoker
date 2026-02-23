@@ -26,6 +26,8 @@ export interface Poker {
   deck: CardType[];
   players: PlayerType[];
   winner: number[];
+  winnerHandName: string;
+  winnerCards: string[];
   actionOn: number;
   currentBet: number;
   dealer: number;

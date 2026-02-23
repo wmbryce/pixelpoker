@@ -28,7 +28,12 @@ function GameContainer() {
 
   return (
     <div className="flex flex-col justify-center my-4 text-center">
-      <Table tableCards={game.tableCards} pot={game.pot} currentBet={game.currentBet} />
+      <Table
+        tableCards={game.tableCards}
+        pot={game.pot}
+        currentBet={game.currentBet}
+        winnerCards={game.winnerCards}
+      />
 
       <div>
         <button
@@ -46,6 +51,8 @@ function GameContainer() {
               index={index}
               dealer={game.dealer}
               winner={game.winner}
+              winnerHandName={game.winnerHandName}
+              winnerCards={game.winnerCards}
               actionOn={game.actionOn}
               currentBet={game.currentBet}
               numPlayers={game.players.length}

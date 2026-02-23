@@ -9,6 +9,8 @@ interface Props {
   index: number;
   dealer: number;
   winner: number[];
+  winnerHandName: string;
+  winnerCards: string[];
   actionOn: number;
   currentBet: number;
   numPlayers: number;
@@ -33,6 +35,8 @@ function Player({
   index,
   dealer,
   winner,
+  winnerHandName,
+  winnerCards,
   actionOn,
   currentBet,
   numPlayers,
@@ -85,12 +89,23 @@ function Player({
         ${player.stack}
       </p>
 
-      <Hand hand={player.cards} active={player.isActive} />
+      <Hand
+        hand={player.cards}
+        active={player.isActive}
+        winnerCardValues={isWinner && winnerCards.length > 0 ? winnerCards : undefined}
+      />
 
       {isWinner && (
-        <span className="text-sm font-bold tracking-widest uppercase animate-winner-flash">
-          ★ WINNER ★
-        </span>
+        <div className="flex flex-col items-center gap-0.5 mt-1">
+          <span className="text-sm font-bold tracking-widest uppercase animate-winner-flash">
+            ★ WINNER ★
+          </span>
+          {winnerHandName && (
+            <span className="text-xs text-vice-gold/80 tracking-widest uppercase">
+              {winnerHandName}
+            </span>
+          )}
+        </div>
       )}
 
       {/* Action controls (only for me) */}
