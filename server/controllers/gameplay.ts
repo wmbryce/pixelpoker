@@ -99,9 +99,6 @@ const postBlinds = (game: Poker): void => {
 
 const solverCards = (cards: CardType[]): string[] => cards.map((c) => c.value);
 
-// pokersolver uses 'T' for ten; our CardType.value uses '10'.
-const pokerRankToLabel = (r: string) => (r === 'T' ? '10' : r);
-
 const determineWinner = (game: Poker): void => {
   const activePlayers = game.players
     .map((p, i) => ({ player: p, index: i }))
@@ -121,9 +118,13 @@ const determineWinner = (game: Poker): void => {
   }
 
   game.winner = winningIndexes;
-  game.winnerHandName = winningHands[0].name as string;
+  const best = winningHands[0];
+  game.winnerHandName = (best.name === 'Straight Flush' && best.descr === 'Royal Flush')
+    ? 'Royal Flush'
+    : (best.name as string);
+  // CardType.value is now in pokersolver format ('T' not '10'), so concatenate directly.
   game.winnerCards = winningHands[0].cards.map(
-    (c: { value: string; suit: string }) => pokerRankToLabel(c.value) + c.suit,
+    (c: { value: string; suit: string }) => c.value + c.suit,
   );
 };
 

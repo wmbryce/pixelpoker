@@ -12,13 +12,15 @@ const shuffle = (array: CardType[]): CardType[] => {
   return result;
 };
 
+// pokersolver uses 'T' for ten, not '10'.
+const labelToRank = (label: string) => (label === '10' ? 'T' : label);
+
 export const generateDeck = (): CardType[] => {
   const deck = SUITES.flatMap((suite) =>
     LABELS.map((label) => ({
       suite,
-      // pokersolver expects e.g. "Ac", "2h", "10s"
-      value: label + suite,
-      label,
+      value: labelToRank(label) + suite, // pokersolver format: "Tc", "Ah", "2s"
+      label,                              // display label: "10", "A", "2"
     }))
   );
   // Three independent shuffles for good randomisation

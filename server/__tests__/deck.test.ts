@@ -23,10 +23,11 @@ describe('generateDeck', () => {
     expect(unique.size).toBe(52);
   });
 
-  it('card values follow pokersolver format (label + suite)', () => {
+  it('card values follow pokersolver format (rank + suite)', () => {
     const deck = generateDeck();
     for (const card of deck) {
-      expect(card.value).toBe(card.label + card.suite);
+      const rank = card.label === '10' ? 'T' : card.label;
+      expect(card.value).toBe(rank + card.suite);
     }
   });
 
