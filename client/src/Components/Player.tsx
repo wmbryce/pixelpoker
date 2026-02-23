@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Hand from './Hand';
 import socket from '../socket';
 import type { PlayerType } from '@pixelpoker/shared';
@@ -15,7 +15,10 @@ interface Props {
   currentBet: number;
   numPlayers: number;
   isMe: boolean;
+  timerDeadline: number | null;
 }
+
+const TURN_SECONDS = 30;
 
 function seatLabel(index: number, dealer: number, numPlayers: number): string {
   if (index === dealer) return 'DEALER';
@@ -41,17 +44,43 @@ function Player({
   currentBet,
   numPlayers,
   isMe,
+  timerDeadline,
 }: Props) {
   const [bet, setBet] = useState(20);
+  const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
 
   const isMyTurn = isMe && actionOn === index && player.isActive;
+  const isThisTurn = actionOn === index && player.isActive;
   const isWinner = winner.includes(index);
   const label = seatLabel(index, dealer, numPlayers);
+
+  useEffect(() => {
+    if (!isThisTurn || timerDeadline === null) {
+      setSecondsLeft(null);
+      return;
+    }
+
+    const tick = () => {
+      const left = Math.ceil((timerDeadline - Date.now()) / 1000);
+      setSecondsLeft(Math.max(0, left));
+    };
+
+    tick();
+    const id = setInterval(tick, 500);
+    return () => clearInterval(id);
+  }, [isThisTurn, timerDeadline]);
 
   const sendAction = (type: GameAction['type']) => {
     const action: GameAction = { type, playerIndex: index, bet };
     socket.emit('gameAction', action);
   };
+
+  const timerPct = secondsLeft !== null ? (secondsLeft / TURN_SECONDS) * 100 : null;
+  const timerColor =
+    secondsLeft === null ? ''
+    : secondsLeft > 10   ? 'bg-vice-cyan'
+    : secondsLeft > 5    ? 'bg-vice-gold'
+    : 'bg-vice-pink';
 
   return (
     <div
@@ -94,6 +123,21 @@ function Player({
         active={player.isActive}
         winnerCardValues={isWinner && winnerCards.length > 0 ? winnerCards : undefined}
       />
+
+      {/* Turn timer */}
+      {timerPct !== null && (
+        <div className="w-full flex flex-col gap-0.5">
+          <div className="w-full h-1.5 bg-vice-bg rounded-none overflow-hidden">
+            <div
+              className={`h-full transition-all duration-500 ${timerColor}`}
+              style={{ width: `${timerPct}%` }}
+            />
+          </div>
+          <span className="text-xs text-vice-muted tracking-widest text-right">
+            {secondsLeft}s
+          </span>
+        </div>
+      )}
 
       {isWinner && (
         <div className="flex flex-col items-center gap-0.5 mt-1">

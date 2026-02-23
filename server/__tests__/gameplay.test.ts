@@ -16,10 +16,11 @@ const makeGame = (numPlayers = 2, smallBlind = 10, bigBlind = 20) => {
   return game;
 };
 
+// Mirrors deck.ts: ten uses 'T' in pokersolver value, '10' as display label.
 const card = (label: string, suite: string): CardType => ({
   label,
   suite,
-  value: label + suite,
+  value: (label === '10' ? 'T' : label) + suite,
 });
 
 /** Sum of all player stacks + pot. Should be invariant through any hand. */
@@ -226,20 +227,20 @@ describe('advanceGameStage (showdown)', () => {
     expect(next.winnerHandName).toBe('Four of a Kind');
   });
 
-  it('identifies a straight flush correctly', () => {
+  it('identifies a royal flush correctly', () => {
     const game = makeGame(2);
     game.stage = 4;
-    // Player 0: 5h 6h; table: 7h 8h 9h → straight flush 5-9 of hearts
-    // Player 1: Ad Kd → only high card
-    game.players[0].cards = [card('5', 'h'), card('6', 'h')];
-    game.players[1].cards = [card('A', 'd'), card('K', 'd')];
+    // Player 0: Ah Kh; table: Qh Jh 10h → royal flush in hearts
+    // Player 1: 2c 3d → only a pair of 2s (with 2d on table)
+    game.players[0].cards = [card('A', 'h'), card('K', 'h')];
+    game.players[1].cards = [card('2', 'c'), card('3', 'd')];
     game.tableCards = [
-      card('7', 'h'), card('8', 'h'), card('9', 'h'), card('2', 'c'), card('3', 's'),
+      card('Q', 'h'), card('J', 'h'), card('10', 'h'), card('2', 'd'), card('4', 's'),
     ];
     const next = advanceGameStage(game);
     expect(next.winner).toContain(0);
     expect(next.winner).not.toContain(1);
-    expect(next.winnerHandName).toBe('Straight Flush');
+    expect(next.winnerHandName).toBe('Royal Flush');
   });
 
   it('populates winnerCards with exactly 5 cards', () => {

@@ -35,6 +35,7 @@ export const initializeGame = (smallBlind = SMALL_BLIND, bigBlind = BIG_BLIND): 
   dealer: 0,
   smallBlind,
   bigBlind,
+  timerDeadline: null,
 });
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -147,6 +148,7 @@ const resetGame = (game: Poker): Poker => {
   game.winnerCards = [];
   game.stage = 0;
   game.currentBet = 0;
+  game.timerDeadline = null;
   game.dealer = game.dealer + 1 < game.players.length ? game.dealer + 1 : 0;
   for (const player of game.players) {
     player.cards = [];

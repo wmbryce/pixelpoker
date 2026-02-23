@@ -15,6 +15,7 @@ import { raise, call, fold, nextPlayer } from './controllers/actions';
 
 const PORT = 8000;
 const CORS_ORIGIN = 'http://localhost:3000';
+const TURN_DURATION_MS = 30_000;
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Express + Socket.IO setup
@@ -39,6 +40,7 @@ app.get('/health', (_req, res) => {
 // ──────────────────────────────────────────────────────────────────────────────
 
 const rooms = new Map<string, Poker>();
+const timers = new Map<string, ReturnType<typeof setTimeout>>();
 
 interface PlayerSession {
   room: string;
@@ -46,6 +48,56 @@ interface PlayerSession {
   name: string;
 }
 const sessions = new Map<string, PlayerSession>();
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Turn timer helpers
+// ──────────────────────────────────────────────────────────────────────────────
+
+const clearTurnTimer = (room: string) => {
+  const t = timers.get(room);
+  if (t) {
+    clearTimeout(t);
+    timers.delete(room);
+  }
+};
+
+const startTurnTimer = (room: string) => {
+  clearTurnTimer(room);
+
+  const game = rooms.get(room);
+  if (!game || game.stage < 1 || game.stage > 4) {
+    if (game) game.timerDeadline = null;
+    return;
+  }
+
+  const activePlayers = game.players.filter((p) => p.isActive).length;
+  if (activePlayers <= 1) {
+    game.timerDeadline = null;
+    return;
+  }
+
+  game.timerDeadline = Date.now() + TURN_DURATION_MS;
+
+  const t = setTimeout(() => {
+    timers.delete(room);
+
+    const g = rooms.get(room);
+    if (!g || g.stage < 1 || g.stage > 4) return;
+
+    const pi = g.actionOn;
+    if (!g.players[pi]?.isActive) return;
+
+    const { result } = fold(g, pi);
+    result.actionOn = nextPlayer(result, pi);
+    rooms.set(room, result);
+
+    startTurnTimer(room);   // sets timerDeadline on result, starts next timer
+    broadcastGame(room);
+    console.log(chalk.yellow(`  auto-folded player ${pi} in room "${room}" (timeout)`));
+  }, TURN_DURATION_MS);
+
+  timers.set(room, t);
+};
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Helper
@@ -123,9 +175,12 @@ io.on('connection', (socket) => {
     const game = rooms.get(session.room);
     if (!game) return;
 
+    clearTurnTimer(session.room);
+
     const updated = processGameAction(game, action);
     if (updated) {
       rooms.set(session.room, updated);
+      startTurnTimer(session.room);  // sets timerDeadline on updated game
       broadcastGame(session.room);
     }
   });
@@ -147,6 +202,7 @@ io.on('connection', (socket) => {
     const session = sessions.get(socket.id);
     sessions.delete(socket.id);
     if (session) {
+      clearTurnTimer(session.room);
       console.log(chalk.red(`- disconnected: ${session.name} (${socket.id})`));
     }
   });

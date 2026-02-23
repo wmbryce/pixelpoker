@@ -109,6 +109,7 @@ function GameContainer() {
               currentBet={game.currentBet}
               numPlayers={game.players.length}
               isMe={myPlayerIndex === index}
+              timerDeadline={game.timerDeadline ?? null}
             />
           ))}
         </div>
