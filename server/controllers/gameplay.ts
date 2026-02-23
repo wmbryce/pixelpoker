@@ -1,6 +1,7 @@
 import { cloneDeep, isEqual } from 'lodash';
 import { generateDeck } from './deck';
 import type { CardType, Poker, PlayerType } from './types';
+import { SMALL_BLIND, BIG_BLIND } from './types';
 
 // pokersolver has no type definitions — import with require
 // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -20,7 +21,7 @@ export const createPlayer = (id: string, name: string): PlayerType => ({
   checked: false,
 });
 
-export const initializeGame = (): Poker => ({
+export const initializeGame = (smallBlind = SMALL_BLIND, bigBlind = BIG_BLIND): Poker => ({
   stage: 0,
   pot: 0,
   tableCards: [],
@@ -32,6 +33,8 @@ export const initializeGame = (): Poker => ({
   actionOn: 0,
   currentBet: 0,
   dealer: 0,
+  smallBlind,
+  bigBlind,
 });
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -63,6 +66,31 @@ const dealCommunityCards = (game: Poker): Poker => {
   }
   game.deck = deck;
   return game;
+};
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Blinds
+// ──────────────────────────────────────────────────────────────────────────────
+
+const postBlinds = (game: Poker): void => {
+  const n = game.players.length;
+  if (n < 2) return;
+
+  const sbIndex = (game.dealer + 1) % n;
+  const bbIndex = (game.dealer + 2) % n;
+
+  const sbAmount = Math.min(game.smallBlind, game.players[sbIndex].stack);
+  game.players[sbIndex].stack -= sbAmount;
+  game.players[sbIndex].lastBet = sbAmount;
+  game.pot += sbAmount;
+
+  const bbAmount = Math.min(game.bigBlind, game.players[bbIndex].stack);
+  game.players[bbIndex].stack -= bbAmount;
+  game.players[bbIndex].lastBet = bbAmount;
+  game.pot += bbAmount;
+
+  game.currentBet = game.bigBlind;
+  game.actionOn = (game.dealer + 3) % n;
 };
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -151,6 +179,11 @@ export const advanceGameStage = (game: Poker): Poker => {
   for (const player of next.players) {
     player.lastBet = 0;
     player.checked = false;
+  }
+
+  // Post blinds after the pre-flop deal and bet-state reset
+  if (next.stage === 1) {
+    postBlinds(next);
   }
 
   return next;

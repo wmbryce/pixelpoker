@@ -1,20 +1,24 @@
 import { useState } from 'react';
 
 interface Props {
-  setupRoom: (userId: string, roomId: string) => void;
+  setupRoom: (userId: string, roomId: string, smallBlind?: number, bigBlind?: number) => void;
 }
 
 function WelcomeView({ setupRoom }: Props) {
   const [userId, setUserId] = useState('');
   const [roomId, setRoomId] = useState('');
+  const [smallBlind, setSmallBlind] = useState(10);
+  const [bigBlind, setBigBlind] = useState(20);
   const [errors, setErrors] = useState<string[]>([]);
 
   const handleJoin = () => {
     const newErrors: string[] = [];
     if (userId.trim().length === 0) newErrors.push('PLAYER NAME REQUIRED');
     if (roomId.trim().length === 0) newErrors.push('ROOM CODE REQUIRED');
+    if (!smallBlind || smallBlind <= 0) newErrors.push('SMALL BLIND MUST BE POSITIVE');
+    if (!bigBlind || bigBlind <= smallBlind) newErrors.push('BIG BLIND MUST EXCEED SMALL BLIND');
     setErrors(newErrors);
-    if (newErrors.length === 0) setupRoom(userId.trim(), roomId.trim());
+    if (newErrors.length === 0) setupRoom(userId.trim(), roomId.trim(), smallBlind, bigBlind);
   };
 
   const handleKey = (e: React.KeyboardEvent) => {
@@ -65,6 +69,37 @@ function WelcomeView({ setupRoom }: Props) {
             onChange={(e) => setRoomId(e.target.value)}
             onKeyDown={handleKey}
           />
+        </div>
+
+        {/* Blinds — only matter for the room creator */}
+        <div className="border-t border-vice-violet/30 pt-3">
+          <p className="text-vice-muted/60 text-xs tracking-widest uppercase mb-2">
+            Blinds (room creator only)
+          </p>
+          <div className="flex gap-3">
+            <div className="flex-1 relative">
+              <span className="absolute left-2 top-1/2 -translate-y-1/2 text-vice-gold/60 text-sm select-none">SB $</span>
+              <input
+                type="number"
+                min={1}
+                className="w-full bg-vice-bg border-2 border-vice-muted pl-10 pr-3 py-2 tracking-wider focus:outline-none focus:border-vice-gold transition-colors"
+                value={smallBlind}
+                onChange={(e) => setSmallBlind(Number.parseInt(e.target.value, 10))}
+                onKeyDown={handleKey}
+              />
+            </div>
+            <div className="flex-1 relative">
+              <span className="absolute left-2 top-1/2 -translate-y-1/2 text-vice-gold/60 text-sm select-none">BB $</span>
+              <input
+                type="number"
+                min={2}
+                className="w-full bg-vice-bg border-2 border-vice-muted pl-10 pr-3 py-2 tracking-wider focus:outline-none focus:border-vice-gold transition-colors"
+                value={bigBlind}
+                onChange={(e) => setBigBlind(Number.parseInt(e.target.value, 10))}
+                onKeyDown={handleKey}
+              />
+            </div>
+          </div>
         </div>
 
         {errors.map((err, i) => (

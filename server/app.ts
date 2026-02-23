@@ -10,6 +10,7 @@ import type {
   GameAction,
 } from './controllers/types';
 import { initializeGame, createPlayer, advanceGameStage } from './controllers/gameplay';
+import { SMALL_BLIND, BIG_BLIND } from './controllers/types';
 import { raise, call, fold, nextPlayer } from './controllers/actions';
 
 const PORT = 8000;
@@ -86,11 +87,11 @@ const processGameAction = (game: Poker, action: GameAction): Poker | null => {
 io.on('connection', (socket) => {
   console.log(chalk.green(`+ connected: ${socket.id}`));
 
-  socket.on('joinRoom', ({ username, room }) => {
+  socket.on('joinRoom', ({ username, room, smallBlind, bigBlind }) => {
     socket.join(room);
 
     if (!rooms.has(room)) {
-      rooms.set(room, initializeGame());
+      rooms.set(room, initializeGame(smallBlind ?? SMALL_BLIND, bigBlind ?? BIG_BLIND));
     }
 
     const game = rooms.get(room)!;
@@ -127,6 +128,19 @@ io.on('connection', (socket) => {
       rooms.set(session.room, updated);
       broadcastGame(session.room);
     }
+  });
+
+  socket.on('changeBlinds', ({ smallBlind, bigBlind }) => {
+    const session = sessions.get(socket.id);
+    if (!session) return;
+
+    const game = rooms.get(session.room);
+    if (!game || game.stage !== 0) return;
+    if (smallBlind <= 0 || bigBlind <= smallBlind) return;
+
+    game.smallBlind = smallBlind;
+    game.bigBlind = bigBlind;
+    broadcastGame(session.room);
   });
 
   socket.on('disconnect', () => {

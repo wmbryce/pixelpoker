@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import Table from './Table';
 import Player from './Player';
 import { useGameStore } from '../store/gameStore';
@@ -8,6 +9,17 @@ import type { GameAction } from '@pixelpoker/shared';
 function GameContainer() {
   const game = useGameStore((state) => state.game);
   const myPlayerIndex = useGameStore((state) => state.myPlayerIndex);
+
+  const [pendingSmallBlind, setPendingSmallBlind] = useState(10);
+  const [pendingBigBlind, setPendingBigBlind] = useState(20);
+
+  // Keep pending inputs in sync when another player changes blinds
+  useEffect(() => {
+    if (game) {
+      setPendingSmallBlind(game.smallBlind);
+      setPendingBigBlind(game.bigBlind);
+    }
+  }, [game?.smallBlind, game?.bigBlind]);
 
   if (!game) {
     return (
@@ -22,6 +34,11 @@ function GameContainer() {
     socket.emit('gameAction', action);
   };
 
+  const applyBlinds = () => {
+    if (pendingSmallBlind <= 0 || pendingBigBlind <= pendingSmallBlind) return;
+    socket.emit('changeBlinds', { smallBlind: pendingSmallBlind, bigBlind: pendingBigBlind });
+  };
+
   const stageLabel = game.stage < 4
     ? `▶ DEAL ${GAME_STAGES[game.stage]}`
     : GAME_STAGES[game.stage];
@@ -33,9 +50,44 @@ function GameContainer() {
         pot={game.pot}
         currentBet={game.currentBet}
         winnerCards={game.winnerCards}
+        smallBlind={game.smallBlind}
+        bigBlind={game.bigBlind}
       />
 
       <div>
+        {/* Blind controls — only visible between hands */}
+        {game.stage === 0 && (
+          <div className="flex items-center justify-center gap-3 mb-3">
+            <span className="text-vice-muted/60 text-xs tracking-widest uppercase">Blinds</span>
+            <div className="flex items-center gap-1">
+              <span className="text-vice-muted/50 text-xs">SB $</span>
+              <input
+                type="number"
+                min={1}
+                value={pendingSmallBlind}
+                onChange={(e) => setPendingSmallBlind(Number.parseInt(e.target.value, 10))}
+                className="w-16 bg-vice-bg border border-vice-muted/30 text-center text-sm focus:outline-none focus:border-vice-gold px-1 py-1 transition-colors"
+              />
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="text-vice-muted/50 text-xs">BB $</span>
+              <input
+                type="number"
+                min={2}
+                value={pendingBigBlind}
+                onChange={(e) => setPendingBigBlind(Number.parseInt(e.target.value, 10))}
+                className="w-16 bg-vice-bg border border-vice-muted/30 text-center text-sm focus:outline-none focus:border-vice-gold px-1 py-1 transition-colors"
+              />
+            </div>
+            <button
+              onClick={applyBlinds}
+              className="bg-vice-violet text-white px-3 py-1 text-xs font-bold tracking-widest uppercase btn-pixel hover:brightness-110"
+            >
+              SET
+            </button>
+          </div>
+        )}
+
         <button
           className="bg-vice-violet text-white px-8 py-3 my-2 font-bold tracking-widest uppercase text-sm btn-pixel hover:brightness-110 transition-all"
           onClick={advanceStage}

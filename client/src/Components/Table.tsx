@@ -6,9 +6,11 @@ interface Props {
   pot: number;
   currentBet: number;
   winnerCards: string[];
+  smallBlind: number;
+  bigBlind: number;
 }
 
-function Table({ tableCards, pot, currentBet, winnerCards }: Props) {
+function Table({ tableCards, pot, currentBet, winnerCards, smallBlind, bigBlind }: Props) {
   return (
     <div className="mx-16 mb-5">
       <p className="text-xs font-bold mb-2 tracking-widest uppercase text-vice-muted/70">
@@ -24,7 +26,7 @@ function Table({ tableCards, pot, currentBet, winnerCards }: Props) {
           winnerCardValues={winnerCards.length > 0 ? winnerCards : undefined}
         />
 
-        <div className="flex items-center gap-8">
+        <div className="flex items-center gap-6">
           <div className="flex flex-col items-center">
             <span className="text-xs text-vice-muted/70 tracking-widest uppercase">Pot</span>
             <span
@@ -38,6 +40,13 @@ function Table({ tableCards, pot, currentBet, winnerCards }: Props) {
           <div className="flex flex-col items-center">
             <span className="text-xs text-vice-muted/70 tracking-widest uppercase">Bet</span>
             <span className="text-vice-muted text-2xl font-semibold tracking-wider">${currentBet}</span>
+          </div>
+          <div className="w-px h-8 bg-vice-violet/40" />
+          <div className="flex flex-col items-center">
+            <span className="text-xs text-vice-muted/70 tracking-widest uppercase">Blinds</span>
+            <span className="text-vice-muted text-lg font-semibold tracking-wider">
+              ${smallBlind}<span className="text-vice-violet/60 mx-0.5">/</span>${bigBlind}
+            </span>
           </div>
         </div>
       </div>

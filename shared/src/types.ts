@@ -31,7 +31,12 @@ export interface Poker {
   actionOn: number;
   currentBet: number;
   dealer: number;
+  smallBlind: number;
+  bigBlind: number;
 }
+
+export const SMALL_BLIND = 10;
+export const BIG_BLIND = 20;
 
 export const GAME_STAGES = [
   'pre-flop',
@@ -70,7 +75,8 @@ export interface ServerToClientEvents {
 }
 
 export interface ClientToServerEvents {
-  joinRoom: (data: { username: string; room: string }) => void;
+  joinRoom: (data: { username: string; room: string; smallBlind?: number; bigBlind?: number }) => void;
   chat: (text: string) => void;
   gameAction: (data: GameAction) => void;
+  changeBlinds: (data: { smallBlind: number; bigBlind: number }) => void;
 }

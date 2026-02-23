@@ -10,4 +10,4 @@ export type {
   ServerToClientEvents,
   ClientToServerEvents,
 } from '@pixelpoker/shared';
-export { GAME_STAGES } from '@pixelpoker/shared';
+export { GAME_STAGES, SMALL_BLIND, BIG_BLIND } from '@pixelpoker/shared';
