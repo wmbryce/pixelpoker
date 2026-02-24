@@ -88,12 +88,14 @@ function GameContainer() {
           </div>
         )}
 
-        <button
-          className="bg-vice-violet text-white px-8 py-3 my-2 font-bold tracking-widest uppercase text-sm btn-pixel hover:brightness-110 transition-all"
-          onClick={advanceStage}
-        >
-          {stageLabel}
-        </button>
+        {game.stage !== 5 && (
+          <button
+            className="bg-vice-violet text-white px-8 py-3 my-2 font-bold tracking-widest uppercase text-sm btn-pixel hover:brightness-110 transition-all"
+            onClick={advanceStage}
+          >
+            {stageLabel}
+          </button>
+        )}
 
         <div className="flex flex-row justify-around items-start my-4 flex-wrap gap-4 px-4">
           {game.players.map((player, index) => (

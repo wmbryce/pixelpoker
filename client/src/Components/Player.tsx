@@ -1,8 +1,14 @@
 import { useState, useEffect } from 'react';
 import Hand from './Hand';
 import socket from '../socket';
-import type { PlayerType } from '@pixelpoker/shared';
+import type { PlayerType, CardType } from '@pixelpoker/shared';
 import type { GameAction } from '@pixelpoker/shared';
+
+// Two placeholder entries so Hand renders face-down cards for hidden hands
+const HIDDEN_CARDS: CardType[] = [
+  { suite: '', value: '', label: '' },
+  { suite: '', value: '', label: '' },
+];
 
 interface Props {
   player: PlayerType;
@@ -52,6 +58,11 @@ function Player({
   const isMyTurn = isMe && actionOn === index && player.isActive;
   const isThisTurn = actionOn === index && player.isActive;
   const isWinner = winner.includes(index);
+
+  // Other players' cards are hidden until showdown (server sends cards: [])
+  const isHidden = !isMe && player.isActive && player.cards.length === 0;
+  const displayCards = isHidden ? HIDDEN_CARDS : player.cards;
+  const handActive = player.isActive && !isHidden;
   const label = seatLabel(index, dealer, numPlayers);
 
   useEffect(() => {
@@ -119,8 +130,8 @@ function Player({
       </p>
 
       <Hand
-        hand={player.cards}
-        active={player.isActive}
+        hand={displayCards}
+        active={handActive}
         winnerCardValues={isWinner && winnerCards.length > 0 ? winnerCards : undefined}
       />
 

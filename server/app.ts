@@ -16,6 +16,7 @@ import { raise, call, fold, nextPlayer } from './controllers/actions';
 const PORT = 8000;
 const CORS_ORIGIN = 'http://localhost:3000';
 const TURN_DURATION_MS = 30_000;
+const AUTO_DEAL_DELAY_MS = 4_000;
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Express + Socket.IO setup
@@ -46,6 +47,7 @@ app.get('/rooms/:code', (req, res) => {
 
 const rooms = new Map<string, Poker>();
 const timers = new Map<string, ReturnType<typeof setTimeout>>();
+const autoDealTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
 interface PlayerSession {
   room: string;
@@ -105,12 +107,66 @@ const startTurnTimer = (room: string) => {
 };
 
 // ──────────────────────────────────────────────────────────────────────────────
-// Helper
+// Auto-deal helper
 // ──────────────────────────────────────────────────────────────────────────────
 
+const clearAutoDeal = (room: string) => {
+  const t = autoDealTimers.get(room);
+  if (t) {
+    clearTimeout(t);
+    autoDealTimers.delete(room);
+  }
+};
+
+const scheduleAutoDeal = (room: string) => {
+  clearAutoDeal(room);
+
+  const t = setTimeout(() => {
+    autoDealTimers.delete(room);
+
+    const game = rooms.get(room);
+    if (!game || game.stage !== 5) return;
+
+    const reset = advanceGameStage(game);  // 5 → 0
+    const dealt = advanceGameStage(reset); // 0 → 1 (deals pre-flop, posts blinds)
+    rooms.set(room, dealt);
+
+    startTurnTimer(room);
+    broadcastGame(room);
+    console.log(chalk.blue(`  auto-dealing next hand in room "${room}"`));
+  }, AUTO_DEAL_DELAY_MS);
+
+  autoDealTimers.set(room, t);
+};
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Broadcast helpers
+// ──────────────────────────────────────────────────────────────────────────────
+
+// Sends each player a personalized game state: their own cards are visible,
+// other players' cards are hidden until showdown (stage 5).
 const broadcastGame = (room: string) => {
   const game = rooms.get(room);
-  if (game) io.to(room).emit('updateGame', game);
+  if (!game) return;
+
+  const showAllCards = game.stage === 5;
+
+  for (const [socketId, session] of sessions.entries()) {
+    if (session.room !== room) continue;
+    const sock = io.sockets.sockets.get(socketId);
+    if (!sock) continue;
+
+    const personalizedGame = showAllCards
+      ? game
+      : {
+          ...game,
+          players: game.players.map((p, i) =>
+            i === session.playerIndex ? p : { ...p, cards: [] }
+          ),
+        };
+
+    sock.emit('updateGame', personalizedGame);
+  }
 };
 
 const processGameAction = (game: Poker, action: GameAction): Poker | null => {
@@ -181,11 +237,18 @@ io.on('connection', (socket) => {
     if (!game) return;
 
     clearTurnTimer(session.room);
+    clearAutoDeal(session.room);
 
     const updated = processGameAction(game, action);
     if (updated) {
       rooms.set(session.room, updated);
-      startTurnTimer(session.room);  // sets timerDeadline on updated game
+
+      if (updated.stage === 5) {
+        scheduleAutoDeal(session.room);
+      } else {
+        startTurnTimer(session.room);
+      }
+
       broadcastGame(session.room);
     }
   });
@@ -208,6 +271,7 @@ io.on('connection', (socket) => {
     sessions.delete(socket.id);
     if (session) {
       clearTurnTimer(session.room);
+      clearAutoDeal(session.room);
       console.log(chalk.red(`- disconnected: ${session.name} (${socket.id})`));
     }
   });
