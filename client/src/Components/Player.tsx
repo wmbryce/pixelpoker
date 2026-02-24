@@ -114,11 +114,18 @@ function Player({
           {player.name}
           {isMe && <span className="ml-1 text-vice-gold text-xs">(you)</span>}
         </span>
-        {label && (
-          <span className={`text-xs px-1.5 py-0.5 font-bold tracking-wider ${LABEL_COLORS[label] ?? ''}`}>
-            {label}
-          </span>
-        )}
+        <div className="flex items-center gap-1 shrink-0">
+          {player.isAI && (
+            <span className="text-xs px-1.5 py-0.5 font-bold tracking-wider bg-vice-violet/60 text-vice-cyan border border-vice-cyan/40">
+              BOT
+            </span>
+          )}
+          {label && (
+            <span className={`text-xs px-1.5 py-0.5 font-bold tracking-wider ${LABEL_COLORS[label] ?? ''}`}>
+              {label}
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Stack */}

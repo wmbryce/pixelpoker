@@ -1,7 +1,7 @@
 import { useState } from 'react';
 
 interface Props {
-  onCreated: (code: string, playerName: string, smallBlind: number, bigBlind: number) => void;
+  onCreated: (code: string, playerName: string, smallBlind: number, bigBlind: number, aiCount: number) => void;
   onBack: () => void;
 }
 
@@ -10,6 +10,7 @@ function CreateRoomScreen({ onCreated, onBack }: Props) {
   const [playerName, setPlayerName] = useState('');
   const [smallBlind, setSmallBlind] = useState(10);
   const [bigBlind, setBigBlind] = useState(20);
+  const [aiCount, setAiCount] = useState(0);
   const [errors, setErrors] = useState<string[]>([]);
 
   const handleCreate = () => {
@@ -21,10 +22,9 @@ function CreateRoomScreen({ onCreated, onBack }: Props) {
     setErrors(errs);
     if (errs.length > 0) return;
 
-    // Generate a short room code from the name + random suffix
     const suffix = Math.floor(100 + Math.random() * 900).toString();
     const code = roomName.trim().toUpperCase().replace(/\s+/g, '-') + '-' + suffix;
-    onCreated(code, playerName.trim(), smallBlind, bigBlind);
+    onCreated(code, playerName.trim(), smallBlind, bigBlind, aiCount);
   };
 
   const handleKey = (e: React.KeyboardEvent) => {
@@ -86,6 +86,35 @@ function CreateRoomScreen({ onCreated, onBack }: Props) {
               />
             </div>
           </div>
+        </div>
+
+        {/* AI players */}
+        <div className="border-t border-vice-violet/30 pt-3">
+          <p className="text-vice-muted/60 text-xs tracking-widest uppercase mb-2">AI Players</p>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setAiCount((n) => Math.max(0, n - 1))}
+              className="w-9 h-9 border-2 border-vice-muted text-vice-gold font-bold text-lg btn-pixel hover:border-vice-gold transition-colors flex items-center justify-center"
+            >
+              −
+            </button>
+            <span className="flex-1 text-center text-white font-bold text-lg tracking-widest">
+              {aiCount === 0 ? 'NONE' : aiCount}
+            </span>
+            <button
+              type="button"
+              onClick={() => setAiCount((n) => Math.min(5, n + 1))}
+              className="w-9 h-9 border-2 border-vice-muted text-vice-gold font-bold text-lg btn-pixel hover:border-vice-gold transition-colors flex items-center justify-center"
+            >
+              +
+            </button>
+          </div>
+          {aiCount > 0 && (
+            <p className="text-vice-muted/50 text-xs tracking-wider mt-1 text-center">
+              {aiCount} bot{aiCount > 1 ? 's' : ''} will auto-play
+            </p>
+          )}
         </div>
 
         {errors.map((err, i) => (

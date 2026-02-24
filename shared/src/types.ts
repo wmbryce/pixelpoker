@@ -17,6 +17,7 @@ export interface PlayerType {
   lastBet: number;
   checked: boolean;
   isActive: boolean;
+  isAI?: boolean;
 }
 
 export interface Poker {
@@ -76,7 +77,7 @@ export interface ServerToClientEvents {
 }
 
 export interface ClientToServerEvents {
-  joinRoom: (data: { username: string; room: string; smallBlind?: number; bigBlind?: number }) => void;
+  joinRoom: (data: { username: string; room: string; smallBlind?: number; bigBlind?: number; aiCount?: number }) => void;
   chat: (text: string) => void;
   gameAction: (data: GameAction) => void;
   changeBlinds: (data: { smallBlind: number; bigBlind: number }) => void;

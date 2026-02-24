@@ -9,7 +9,7 @@ import type {
   ClientToServerEvents,
   GameAction,
 } from './controllers/types';
-import { initializeGame, createPlayer, advanceGameStage } from './controllers/gameplay';
+import { initializeGame, createPlayer, createAIPlayer, advanceGameStage } from './controllers/gameplay';
 import { SMALL_BLIND, BIG_BLIND } from './controllers/types';
 import { raise, call, fold, nextPlayer } from './controllers/actions';
 
@@ -17,6 +17,7 @@ const PORT = 8000;
 const CORS_ORIGIN = 'http://localhost:3000';
 const TURN_DURATION_MS = 30_000;
 const AUTO_DEAL_DELAY_MS = 4_000;
+const MAX_AI_PLAYERS = 5;
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Express + Socket.IO setup
@@ -57,6 +58,36 @@ interface PlayerSession {
 const sessions = new Map<string, PlayerSession>();
 
 // ──────────────────────────────────────────────────────────────────────────────
+// AI decision logic
+// ──────────────────────────────────────────────────────────────────────────────
+
+const makeAIDecision = (game: Poker, playerIndex: number): GameAction => {
+  const player = game.players[playerIndex];
+  const amountToCall = game.currentBet - player.lastBet;
+  const rand = Math.random();
+
+  if (amountToCall === 0) {
+    // Nothing to call — check or occasionally raise
+    if (rand < 0.25 && player.stack >= game.bigBlind * 2) {
+      const bet = Math.min(
+        game.bigBlind * (1 + Math.floor(Math.random() * 3)),
+        player.stack,
+      );
+      return { type: 'raise', playerIndex, bet };
+    }
+    return { type: 'call', playerIndex }; // check
+  }
+
+  if (rand < 0.20) return { type: 'fold', playerIndex };
+  if (rand < 0.85) return { type: 'call', playerIndex };
+
+  // Raise
+  const raiseBet = Math.min(game.currentBet * 2, player.stack);
+  if (raiseBet <= amountToCall) return { type: 'call', playerIndex };
+  return { type: 'raise', playerIndex, bet: raiseBet };
+};
+
+// ──────────────────────────────────────────────────────────────────────────────
 // Turn timer helpers
 // ──────────────────────────────────────────────────────────────────────────────
 
@@ -83,27 +114,61 @@ const startTurnTimer = (room: string) => {
     return;
   }
 
-  game.timerDeadline = Date.now() + TURN_DURATION_MS;
+  const currentPlayer = game.players[game.actionOn];
 
-  const t = setTimeout(() => {
-    timers.delete(room);
+  if (currentPlayer?.isAI) {
+    // AI acts automatically after a short human-like delay (0.6–2s)
+    game.timerDeadline = null;
+    const delay = 600 + Math.random() * 1400;
 
-    const g = rooms.get(room);
-    if (!g || g.stage < 1 || g.stage > 4) return;
+    const t = setTimeout(() => {
+      timers.delete(room);
 
-    const pi = g.actionOn;
-    if (!g.players[pi]?.isActive) return;
+      const g = rooms.get(room);
+      if (!g || g.stage < 1 || g.stage > 4) return;
+      if (!g.players[g.actionOn]?.isAI) return;
 
-    const { result } = fold(g, pi);
-    result.actionOn = nextPlayer(result, pi);
-    rooms.set(room, result);
+      const action = makeAIDecision(g, g.actionOn);
+      const result = processGameAction(g, action);
+      if (!result) return;
 
-    startTurnTimer(room);   // sets timerDeadline on result, starts next timer
-    broadcastGame(room);
-    console.log(chalk.yellow(`  auto-folded player ${pi} in room "${room}" (timeout)`));
-  }, TURN_DURATION_MS);
+      rooms.set(room, result);
+      if (result.stage === 5) {
+        scheduleAutoDeal(room);
+      } else {
+        startTurnTimer(room);
+      }
+      broadcastGame(room);
+      console.log(
+        chalk.magenta(`  AI player ${g.actionOn} → ${action.type}${action.bet ? ` $${action.bet}` : ''} in "${room}"`),
+      );
+    }, delay);
 
-  timers.set(room, t);
+    timers.set(room, t);
+  } else {
+    // Human player — 30-second countdown
+    game.timerDeadline = Date.now() + TURN_DURATION_MS;
+
+    const t = setTimeout(() => {
+      timers.delete(room);
+
+      const g = rooms.get(room);
+      if (!g || g.stage < 1 || g.stage > 4) return;
+
+      const pi = g.actionOn;
+      if (!g.players[pi]?.isActive) return;
+
+      const { result } = fold(g, pi);
+      result.actionOn = nextPlayer(result, pi);
+      rooms.set(room, result);
+
+      startTurnTimer(room);
+      broadcastGame(room);
+      console.log(chalk.yellow(`  auto-folded player ${pi} in room "${room}" (timeout)`));
+    }, TURN_DURATION_MS);
+
+    timers.set(room, t);
+  }
 };
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -200,7 +265,7 @@ const processGameAction = (game: Poker, action: GameAction): Poker | null => {
 io.on('connection', (socket) => {
   console.log(chalk.green(`+ connected: ${socket.id}`));
 
-  socket.on('joinRoom', ({ username, room, smallBlind, bigBlind }) => {
+  socket.on('joinRoom', ({ username, room, smallBlind, bigBlind, aiCount }) => {
     socket.join(room);
 
     if (!rooms.has(room)) {
@@ -211,6 +276,15 @@ io.on('connection', (socket) => {
     const playerIndex = game.players.length;
     game.players.push(createPlayer(socket.id, username));
     sessions.set(socket.id, { room, playerIndex, name: username });
+
+    // Add AI players (only when the room is first created, i.e. this is player 0)
+    if (playerIndex === 0 && aiCount && aiCount > 0) {
+      const count = Math.min(aiCount, MAX_AI_PLAYERS);
+      for (let i = 0; i < count; i++) {
+        game.players.push(createAIPlayer(game.players.length));
+      }
+      console.log(chalk.magenta(`  added ${count} AI player(s) to room "${room}"`));
+    }
 
     // Tell this socket which player index they are
     socket.emit('roomJoined', { playerIndex, game });

@@ -9,7 +9,7 @@ import RoomNotFoundScreen from './welcome/RoomNotFoundScreen';
 type Step = 'home' | 'create' | 'create-confirm' | 'join-code' | 'join-name' | 'not-found';
 
 interface Props {
-  setupRoom: (userId: string, roomId: string, smallBlind?: number, bigBlind?: number) => void;
+  setupRoom: (userId: string, roomId: string, smallBlind?: number, bigBlind?: number, aiCount?: number) => void;
 }
 
 const STEP_TITLES: Record<Step, string> = {
@@ -29,17 +29,19 @@ function WelcomeView({ setupRoom }: Props) {
   const [pendingSmallBlind, setPendingSmallBlind] = useState(10);
   const [pendingBigBlind, setPendingBigBlind] = useState(20);
   const [pendingPlayerName, setPendingPlayerName] = useState('');
+  const [pendingAiCount, setPendingAiCount] = useState(0);
 
-  const handleCreated = (code: string, playerName: string, sb: number, bb: number) => {
+  const handleCreated = (code: string, playerName: string, sb: number, bb: number, aiCount: number) => {
     setPendingCode(code);
     setPendingSmallBlind(sb);
     setPendingBigBlind(bb);
     setPendingPlayerName(playerName);
+    setPendingAiCount(aiCount);
     setStep('create-confirm');
   };
 
   const handleEnterCreatedRoom = () => {
-    setupRoom(pendingPlayerName, pendingCode, pendingSmallBlind, pendingBigBlind);
+    setupRoom(pendingPlayerName, pendingCode, pendingSmallBlind, pendingBigBlind, pendingAiCount);
   };
 
   const handleCodeFound = (code: string) => {

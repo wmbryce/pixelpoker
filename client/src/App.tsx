@@ -8,11 +8,11 @@ import WelcomeView from './Components/WelcomeView';
 function App() {
   const { username, room, setUsername, setRoom, setGame, setMyPlayerIndex } = useGameStore();
 
-  const setupRoom = (userId: string, roomId: string, smallBlind?: number, bigBlind?: number) => {
+  const setupRoom = (userId: string, roomId: string, smallBlind?: number, bigBlind?: number, aiCount?: number) => {
     setUsername(userId);
     setRoom(roomId);
     socket.connect();
-    socket.emit('joinRoom', { username: userId, room: roomId, smallBlind, bigBlind });
+    socket.emit('joinRoom', { username: userId, room: roomId, smallBlind, bigBlind, aiCount });
   };
 
   useEffect(() => {

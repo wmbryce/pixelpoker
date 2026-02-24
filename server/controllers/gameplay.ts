@@ -21,6 +21,17 @@ export const createPlayer = (id: string, name: string): PlayerType => ({
   checked: false,
 });
 
+export const createAIPlayer = (seatIndex: number): PlayerType => ({
+  id: `ai-${seatIndex}-${Date.now()}`,
+  name: `BOT ${seatIndex + 1}`,
+  stack: 1000,
+  cards: [],
+  lastBet: 0,
+  isActive: true,
+  checked: false,
+  isAI: true,
+});
+
 export const initializeGame = (smallBlind = SMALL_BLIND, bigBlind = BIG_BLIND): Poker => ({
   stage: 0,
   pot: 0,
