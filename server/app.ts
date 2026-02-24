@@ -35,6 +35,11 @@ app.get('/health', (_req, res) => {
   res.json({ status: 'ok', rooms: rooms.size });
 });
 
+// Room existence check
+app.get('/rooms/:code', (req, res) => {
+  res.json({ exists: rooms.has(req.params.code) });
+});
+
 // ──────────────────────────────────────────────────────────────────────────────
 // In-memory state
 // ──────────────────────────────────────────────────────────────────────────────
