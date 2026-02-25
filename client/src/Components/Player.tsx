@@ -215,7 +215,7 @@ function Player({
             disabled={!isMyTurn}
             className="w-full bg-vice-cyan text-vice-bg text-xs py-2 font-bold tracking-widest uppercase btn-pixel disabled:opacity-30 hover:brightness-110"
           >
-            CHECK / CALL
+            {currentBet - player.lastBet === 0 ? 'CHECK' : `CALL $${currentBet - player.lastBet}`}
           </button>
           <button
             onClick={() => sendAction('fold')}

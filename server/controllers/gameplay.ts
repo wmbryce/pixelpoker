@@ -49,6 +49,7 @@ export const initializeGame = (smallBlind = SMALL_BLIND, bigBlind = BIG_BLIND): 
   smallBlind,
   bigBlind,
   timerDeadline: null,
+  actionsRemaining: 0,
 });
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -105,6 +106,9 @@ const postBlinds = (game: Poker): void => {
 
   game.currentBet = game.bigBlind;
   game.actionOn = (game.dealer + 3) % n;
+
+  // All players must act pre-flop (including blinds who can raise)
+  game.actionsRemaining = n;
 };
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -153,6 +157,25 @@ const distributeWinnings = (game: Poker): void => {
   game.pot = remainder;
 };
 
+// Award pot directly to the last remaining active player without using pokersolver.
+// Used when everyone else folds before the board is complete.
+export const awardPotDirectly = (game: Poker): Poker => {
+  const next = cloneDeep(game);
+  const active = next.players.map((p, i) => ({ p, i })).filter(({ p }) => p.isActive);
+  if (active.length !== 1) return next;
+
+  const { p: winner, i: winnerIndex } = active[0];
+  winner.stack += next.pot;
+  next.pot = 0;
+  next.winner = [winnerIndex];
+  next.winnerHandName = '';
+  next.winnerCards = [];
+  next.stage = 5;
+  next.timerDeadline = null;
+  next.actionsRemaining = 0;
+  return next;
+};
+
 const resetGame = (game: Poker): Poker => {
   game.deck = generateDeck();
   game.tableCards = [];
@@ -162,6 +185,7 @@ const resetGame = (game: Poker): Poker => {
   game.stage = 0;
   game.currentBet = 0;
   game.timerDeadline = null;
+  game.actionsRemaining = 0;
   game.dealer = game.dealer + 1 < game.players.length ? game.dealer + 1 : 0;
   for (const player of game.players) {
     player.cards = [];
@@ -199,9 +223,14 @@ export const advanceGameStage = (game: Poker): Poker => {
     player.lastAction = null;
   }
 
-  // Post blinds after the pre-flop deal and bet-state reset
+  // Post blinds after the pre-flop deal and bet-state reset (also sets actionsRemaining)
   if (next.stage === 1) {
     postBlinds(next);
+  }
+
+  // For flop / turn / river betting rounds, all active players need to act
+  if (next.stage >= 2 && next.stage <= 4) {
+    next.actionsRemaining = next.players.filter((p) => p.isActive).length;
   }
 
   return next;

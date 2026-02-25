@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import Table from './Table';
 import Player from './Player';
 import { useGameStore } from '../store/gameStore';
-import { GAME_STAGES } from '@pixelpoker/shared';
 import socket from '../socket';
 import type { GameAction } from '@pixelpoker/shared';
 
@@ -39,9 +38,12 @@ function GameContainer() {
     socket.emit('changeBlinds', { smallBlind: pendingSmallBlind, bigBlind: pendingBigBlind });
   };
 
-  const stageLabel = game.stage < 4
-    ? `▶ DEAL ${GAME_STAGES[game.stage]}`
-    : GAME_STAGES[game.stage];
+  const BETTING_STAGE_LABELS: Record<number, string> = {
+    1: 'PRE-FLOP',
+    2: 'FLOP',
+    3: 'TURN',
+    4: 'RIVER',
+  };
 
   return (
     <div className="flex flex-col justify-center my-4 text-center">
@@ -88,13 +90,21 @@ function GameContainer() {
           </div>
         )}
 
-        {game.stage !== 5 && (
+        {/* Deal button only shown between hands */}
+        {game.stage === 0 && (
           <button
             className="bg-vice-violet text-white px-8 py-3 my-2 font-bold tracking-widest uppercase text-sm btn-pixel hover:brightness-110 transition-all"
             onClick={advanceStage}
           >
-            {stageLabel}
+            ▶ DEAL
           </button>
+        )}
+
+        {/* Betting round label */}
+        {game.stage >= 1 && game.stage <= 4 && (
+          <p className="text-vice-muted/60 text-xs tracking-widest uppercase my-3">
+            {BETTING_STAGE_LABELS[game.stage]} BETTING
+          </p>
         )}
 
         <div className="flex flex-row justify-around items-start my-4 flex-wrap gap-4 px-4">

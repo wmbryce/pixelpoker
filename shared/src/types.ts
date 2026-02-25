@@ -36,6 +36,7 @@ export interface Poker {
   smallBlind: number;
   bigBlind: number;
   timerDeadline: number | null;
+  actionsRemaining: number;
 }
 
 export const SMALL_BLIND = 10;

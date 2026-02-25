@@ -9,7 +9,7 @@ import type {
   ClientToServerEvents,
   GameAction,
 } from './controllers/types';
-import { initializeGame, createPlayer, createAIPlayer, advanceGameStage } from './controllers/gameplay';
+import { initializeGame, createPlayer, createAIPlayer, advanceGameStage, awardPotDirectly } from './controllers/gameplay';
 import { SMALL_BLIND, BIG_BLIND } from './controllers/types';
 import { raise, call, fold, nextPlayer } from './controllers/actions';
 
@@ -88,7 +88,7 @@ const makeAIDecision = (game: Poker, playerIndex: number): GameAction => {
 };
 
 // ──────────────────────────────────────────────────────────────────────────────
-// Turn timer helpers
+// Turn timer
 // ──────────────────────────────────────────────────────────────────────────────
 
 const clearTurnTimer = (room: string) => {
@@ -99,77 +99,8 @@ const clearTurnTimer = (room: string) => {
   }
 };
 
-const startTurnTimer = (room: string) => {
-  clearTurnTimer(room);
-
-  const game = rooms.get(room);
-  if (!game || game.stage < 1 || game.stage > 4) {
-    if (game) game.timerDeadline = null;
-    return;
-  }
-
-  const activePlayers = game.players.filter((p) => p.isActive).length;
-  if (activePlayers <= 1) {
-    game.timerDeadline = null;
-    return;
-  }
-
-  const currentPlayer = game.players[game.actionOn];
-
-  if (currentPlayer?.isAI) {
-    // AI acts automatically after a short human-like delay (0.6–2s)
-    game.timerDeadline = null;
-    const delay = 600 + Math.random() * 1400;
-
-    const t = setTimeout(() => {
-      timers.delete(room);
-
-      const g = rooms.get(room);
-      if (!g || g.stage < 1 || g.stage > 4) return;
-      if (!g.players[g.actionOn]?.isAI) return;
-
-      const action = makeAIDecision(g, g.actionOn);
-      const result = processGameAction(g, action);
-      if (!result) return;
-
-      rooms.set(room, result);
-      if (result.stage === 5) {
-        scheduleAutoDeal(room);
-      } else {
-        startTurnTimer(room);
-      }
-      broadcastGame(room);
-      console.log(
-        chalk.magenta(`  AI player ${g.actionOn} → ${action.type}${action.bet ? ` $${action.bet}` : ''} in "${room}"`),
-      );
-    }, delay);
-
-    timers.set(room, t);
-  } else {
-    // Human player — 30-second countdown
-    game.timerDeadline = Date.now() + TURN_DURATION_MS;
-
-    const t = setTimeout(() => {
-      timers.delete(room);
-
-      const g = rooms.get(room);
-      if (!g || g.stage < 1 || g.stage > 4) return;
-
-      const pi = g.actionOn;
-      if (!g.players[pi]?.isActive) return;
-
-      const { result } = fold(g, pi);
-      result.actionOn = nextPlayer(result, pi);
-      rooms.set(room, result);
-
-      startTurnTimer(room);
-      broadcastGame(room);
-      console.log(chalk.yellow(`  auto-folded player ${pi} in room "${room}" (timeout)`));
-    }, TURN_DURATION_MS);
-
-    timers.set(room, t);
-  }
-};
+// Forward declaration — defined after handleActionResult
+let startTurnTimer: (room: string) => void;
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Auto-deal helper
@@ -205,11 +136,9 @@ const scheduleAutoDeal = (room: string) => {
 };
 
 // ──────────────────────────────────────────────────────────────────────────────
-// Broadcast helpers
+// Broadcast — personalized per player (hides opponents' cards until showdown)
 // ──────────────────────────────────────────────────────────────────────────────
 
-// Sends each player a personalized game state: their own cards are visible,
-// other players' cards are hidden until showdown (stage 5).
 const broadcastGame = (room: string) => {
   const game = rooms.get(room);
   if (!game) return;
@@ -234,10 +163,16 @@ const broadcastGame = (room: string) => {
   }
 };
 
+// ──────────────────────────────────────────────────────────────────────────────
+// Action processing
+// ──────────────────────────────────────────────────────────────────────────────
+
 const processGameAction = (game: Poker, action: GameAction): Poker | null => {
   const { type, playerIndex, bet } = action;
 
   if (type === 'advance') {
+    // Only allow manual advance at stage 0 (start first hand) or stage 5+
+    if (game.stage > 0 && game.stage < 5) return null;
     return advanceGameStage(game);
   }
 
@@ -245,10 +180,21 @@ const processGameAction = (game: Poker, action: GameAction): Poker | null => {
 
   if (type === 'raise' && bet !== undefined) {
     ({ result } = raise(game, playerIndex, bet));
+    if (result) {
+      // Everyone except the raiser must act again
+      const numActive = result.players.filter((p) => p.isActive).length;
+      result.actionsRemaining = numActive - 1;
+    }
   } else if (type === 'call') {
     ({ result } = call(game, playerIndex));
+    if (result) {
+      result.actionsRemaining = Math.max(0, result.actionsRemaining - 1);
+    }
   } else if (type === 'fold') {
     ({ result } = fold(game, playerIndex));
+    if (result) {
+      result.actionsRemaining = Math.max(0, result.actionsRemaining - 1);
+    }
   }
 
   if (result) {
@@ -256,6 +202,118 @@ const processGameAction = (game: Poker, action: GameAction): Poker | null => {
   }
 
   return result;
+};
+
+// After any betting action, decide whether to auto-advance the street or
+// start the next player's timer.
+const handleActionResult = (room: string, result: Poker) => {
+  const inBettingRound = result.stage >= 1 && result.stage <= 4;
+
+  if (!inBettingRound) {
+    // Stage 0 advance (deal pre-flop): just start timer & broadcast
+    rooms.set(room, result);
+    startTurnTimer(room);
+    broadcastGame(room);
+    return;
+  }
+
+  const activePlayers = result.players.filter((p) => p.isActive);
+
+  if (result.actionsRemaining <= 0) {
+    if (activePlayers.length <= 1) {
+      // Everyone else folded — award pot directly (no pokersolver needed)
+      const final = awardPotDirectly(result);
+      rooms.set(room, final);
+      broadcastGame(room);
+      scheduleAutoDeal(room);
+    } else {
+      // Advance to next street (or showdown)
+      const advanced = advanceGameStage(result);
+      rooms.set(room, advanced);
+      if (advanced.stage === 5) {
+        broadcastGame(room);
+        scheduleAutoDeal(room);
+      } else {
+        startTurnTimer(room);
+        broadcastGame(room);
+      }
+    }
+  } else {
+    rooms.set(room, result);
+    startTurnTimer(room);
+    broadcastGame(room);
+  }
+};
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Turn timer (defined after handleActionResult so it can reference it)
+// ──────────────────────────────────────────────────────────────────────────────
+
+startTurnTimer = (room: string) => {
+  clearTurnTimer(room);
+
+  const game = rooms.get(room);
+  if (!game || game.stage < 1 || game.stage > 4) {
+    if (game) game.timerDeadline = null;
+    return;
+  }
+
+  const activePlayers = game.players.filter((p) => p.isActive).length;
+  if (activePlayers <= 1) {
+    game.timerDeadline = null;
+    return;
+  }
+
+  const currentPlayer = game.players[game.actionOn];
+
+  if (currentPlayer?.isAI) {
+    // AI acts automatically after a short human-like delay (0.6–2s)
+    game.timerDeadline = null;
+    const delay = 600 + Math.random() * 1400;
+
+    const t = setTimeout(() => {
+      timers.delete(room);
+
+      const g = rooms.get(room);
+      if (!g || g.stage < 1 || g.stage > 4) return;
+      if (!g.players[g.actionOn]?.isAI) return;
+
+      const action = makeAIDecision(g, g.actionOn);
+      const actionResult = processGameAction(g, action);
+      if (!actionResult) return;
+
+      console.log(
+        chalk.magenta(`  AI player ${g.actionOn} → ${action.type}${action.bet ? ` $${action.bet}` : ''} in "${room}"`),
+      );
+
+      handleActionResult(room, actionResult);
+    }, delay);
+
+    timers.set(room, t);
+  } else {
+    // Human player — 30-second countdown
+    game.timerDeadline = Date.now() + TURN_DURATION_MS;
+
+    const t = setTimeout(() => {
+      timers.delete(room);
+
+      const g = rooms.get(room);
+      if (!g || g.stage < 1 || g.stage > 4) return;
+
+      const pi = g.actionOn;
+      if (!g.players[pi]?.isActive) return;
+
+      console.log(chalk.yellow(`  auto-folded player ${pi} in room "${room}" (timeout)`));
+
+      const { result } = fold(g, pi);
+      result.actionsRemaining = Math.max(0, result.actionsRemaining - 1);
+      result.actionOn = nextPlayer(result, pi);
+
+      handleActionResult(room, result);
+    }, TURN_DURATION_MS);
+
+    timers.set(room, t);
+  }
 };
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -286,7 +344,6 @@ io.on('connection', (socket) => {
       console.log(chalk.magenta(`  added ${count} AI player(s) to room "${room}"`));
     }
 
-    // Tell this socket which player index they are
     socket.emit('roomJoined', { playerIndex, game });
 
     socket.broadcast
@@ -315,15 +372,7 @@ io.on('connection', (socket) => {
 
     const updated = processGameAction(game, action);
     if (updated) {
-      rooms.set(session.room, updated);
-
-      if (updated.stage === 5) {
-        scheduleAutoDeal(session.room);
-      } else {
-        startTurnTimer(session.room);
-      }
-
-      broadcastGame(session.room);
+      handleActionResult(session.room, updated);
     }
   });
 
