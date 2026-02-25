@@ -12,6 +12,7 @@ export const raise = (
   const next = cloneDeep(game);
   next.players[playerIndex].stack -= bet;
   next.players[playerIndex].lastBet = bet;
+  next.players[playerIndex].lastAction = `RAISE $${bet}`;
   next.currentBet = bet;
   next.pot += bet;
   return { result: next, error: null };
@@ -30,6 +31,7 @@ export const call = (
   next.pot += amount;
   next.players[playerIndex].lastBet = game.currentBet;
   next.players[playerIndex].checked = amount === 0;
+  next.players[playerIndex].lastAction = amount === 0 ? 'CHECK' : 'CALL';
   return { result: next, error: null };
 };
 
@@ -39,6 +41,7 @@ export const fold = (
 ): { result: Poker; error: null } => {
   const next = cloneDeep(game);
   next.players[playerIndex].isActive = false;
+  next.players[playerIndex].lastAction = 'FOLD';
   return { result: next, error: null };
 };
 

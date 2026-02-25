@@ -19,6 +19,7 @@ export const createPlayer = (id: string, name: string): PlayerType => ({
   lastBet: 0,
   isActive: true,
   checked: false,
+  lastAction: null,
 });
 
 export const createAIPlayer = (seatIndex: number): PlayerType => ({
@@ -30,6 +31,7 @@ export const createAIPlayer = (seatIndex: number): PlayerType => ({
   isActive: true,
   checked: false,
   isAI: true,
+  lastAction: null,
 });
 
 export const initializeGame = (smallBlind = SMALL_BLIND, bigBlind = BIG_BLIND): Poker => ({
@@ -166,6 +168,7 @@ const resetGame = (game: Poker): Poker => {
     player.isActive = true;
     player.lastBet = 0;
     player.checked = false;
+    player.lastAction = null;
   }
   return game;
 };
@@ -193,6 +196,7 @@ export const advanceGameStage = (game: Poker): Poker => {
   for (const player of next.players) {
     player.lastBet = 0;
     player.checked = false;
+    player.lastAction = null;
   }
 
   // Post blinds after the pre-flop deal and bet-state reset

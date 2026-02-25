@@ -86,6 +86,15 @@ function Player({
     socket.emit('gameAction', action);
   };
 
+  const ACTION_COLORS: Record<string, string> = {
+    FOLD:  'text-vice-pink',
+    CHECK: 'text-vice-muted',
+    CALL:  'text-vice-cyan',
+  };
+  const actionColor = player.lastAction
+    ? (player.lastAction.startsWith('RAISE') ? 'text-vice-gold' : (ACTION_COLORS[player.lastAction] ?? 'text-vice-muted'))
+    : '';
+
   const timerPct = secondsLeft !== null ? (secondsLeft / TURN_SECONDS) * 100 : null;
   const timerColor =
     secondsLeft === null ? ''
@@ -135,6 +144,13 @@ function Player({
       >
         ${player.stack}
       </p>
+
+      {/* Last action — shown for other players when not actively their turn */}
+      {!isMe && player.lastAction && !isThisTurn && (
+        <p className={`text-xs font-bold tracking-widest uppercase w-full text-left ${actionColor}`}>
+          {player.lastAction}
+        </p>
+      )}
 
       <Hand
         hand={displayCards}

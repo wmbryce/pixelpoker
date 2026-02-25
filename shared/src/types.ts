@@ -18,6 +18,7 @@ export interface PlayerType {
   checked: boolean;
   isActive: boolean;
   isAI?: boolean;
+  lastAction: string | null;
 }
 
 export interface Poker {
