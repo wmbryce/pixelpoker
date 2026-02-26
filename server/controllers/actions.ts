@@ -6,15 +6,17 @@ export const raise = (
   playerIndex: number,
   bet: number
 ): { result: Poker | null; error: string | null } => {
-  if (bet <= 0 || bet > game.players[playerIndex].stack) {
-    return { result: null, error: 'Invalid bet amount' };
+  const alreadyIn = game.players[playerIndex].lastBet;
+  const additional = bet - alreadyIn;
+  if (bet <= game.currentBet || additional <= 0 || additional > game.players[playerIndex].stack) {
+    return { result: null, error: 'Invalid raise amount' };
   }
   const next = cloneDeep(game);
-  next.players[playerIndex].stack -= bet;
+  next.players[playerIndex].stack -= additional;
   next.players[playerIndex].lastBet = bet;
   next.players[playerIndex].lastAction = `RAISE $${bet}`;
   next.currentBet = bet;
-  next.pot += bet;
+  next.pot += additional;
   return { result: next, error: null };
 };
 

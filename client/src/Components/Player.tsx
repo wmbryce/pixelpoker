@@ -55,6 +55,8 @@ function Player({
   const [bet, setBet] = useState(20);
   const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
 
+  const minRaise = currentBet + 1;
+
   const isMyTurn = isMe && actionOn === index && player.isActive;
   const isThisTurn = actionOn === index && player.isActive;
   const isWinner = winner.includes(index);
@@ -65,8 +67,15 @@ function Player({
   const handActive = player.isActive && !isHidden;
   const label = seatLabel(index, dealer, numPlayers);
 
+  // Reset bet to a sensible default when it becomes our turn
   useEffect(() => {
-    if (!isThisTurn || timerDeadline === null) {
+    if (isMyTurn) {
+      setBet(Math.max(minRaise, currentBet * 2));
+    }
+  }, [isMyTurn]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (timerDeadline === null) {
       setSecondsLeft(null);
       return;
     }
@@ -79,7 +88,7 @@ function Player({
     tick();
     const id = setInterval(tick, 500);
     return () => clearInterval(id);
-  }, [isThisTurn, timerDeadline]);
+  }, [timerDeadline]);
 
   const sendAction = (type: GameAction['type']) => {
     const action: GameAction = { type, playerIndex: index, bet };
@@ -159,7 +168,7 @@ function Player({
       />
 
       {/* Turn timer */}
-      {timerPct !== null && (
+      {isThisTurn && timerPct !== null && (
         <div className="w-full flex flex-col gap-0.5">
           <div className="w-full h-1.5 bg-vice-bg rounded-none overflow-hidden">
             <div
@@ -194,7 +203,7 @@ function Player({
             <label className="text-xs text-vice-muted uppercase tracking-wider whitespace-nowrap">Bet $</label>
             <input
               type="number"
-              min={currentBet}
+              min={minRaise}
               max={player.stack}
               value={bet}
               disabled={!isMyTurn}
