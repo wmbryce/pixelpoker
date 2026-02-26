@@ -119,6 +119,7 @@ function GameContainer() {
               winnerCards={game.winnerCards}
               actionOn={game.actionOn}
               currentBet={game.currentBet}
+              bigBlind={game.bigBlind}
               numPlayers={game.players.length}
               isMe={myPlayerIndex === index}
               timerDeadline={game.timerDeadline ?? null}

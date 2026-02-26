@@ -19,6 +19,7 @@ interface Props {
   winnerCards: string[];
   actionOn: number;
   currentBet: number;
+  bigBlind: number;
   numPlayers: number;
   isMe: boolean;
   timerDeadline: number | null;
@@ -48,6 +49,7 @@ function Player({
   winnerCards,
   actionOn,
   currentBet,
+  bigBlind,
   numPlayers,
   isMe,
   timerDeadline,
@@ -55,7 +57,7 @@ function Player({
   const [bet, setBet] = useState(20);
   const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
 
-  const minRaise = currentBet + 1;
+  const minRaise = currentBet + bigBlind;
 
   const isMyTurn = isMe && actionOn === index && player.isActive;
   const isThisTurn = actionOn === index && player.isActive;

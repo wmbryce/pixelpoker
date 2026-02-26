@@ -8,7 +8,9 @@ export const raise = (
 ): { result: Poker | null; error: string | null } => {
   const alreadyIn = game.players[playerIndex].lastBet;
   const additional = bet - alreadyIn;
-  if (bet <= game.currentBet || additional <= 0 || additional > game.players[playerIndex].stack) {
+  const isAllIn = additional === game.players[playerIndex].stack;
+  const meetsMinRaise = bet >= game.currentBet + game.bigBlind;
+  if (additional <= 0 || additional > game.players[playerIndex].stack || (!meetsMinRaise && !isAllIn)) {
     return { result: null, error: 'Invalid raise amount' };
   }
   const next = cloneDeep(game);
