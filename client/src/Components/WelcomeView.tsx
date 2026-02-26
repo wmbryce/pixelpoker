@@ -5,6 +5,7 @@ import RoomCreatedScreen from './welcome/RoomCreatedScreen';
 import JoinCodeScreen from './welcome/JoinCodeScreen';
 import JoinNameScreen from './welcome/JoinNameScreen';
 import RoomNotFoundScreen from './welcome/RoomNotFoundScreen';
+import { getRoomFromUrl } from '../lib/clientSession';
 
 type Step = 'home' | 'create' | 'create-confirm' | 'join-code' | 'join-name' | 'not-found';
 
@@ -22,10 +23,12 @@ const STEP_TITLES: Record<Step, string> = {
 };
 
 function WelcomeView({ setupRoom }: Props) {
-  const [step, setStep] = useState<Step>('home');
+  // If ?room= is in the URL (shared link or failed rejoin), skip to join-name
+  const urlRoom = getRoomFromUrl();
+  const [step, setStep] = useState<Step>(urlRoom ? 'join-name' : 'home');
 
   // Data carried between steps
-  const [pendingCode, setPendingCode] = useState('');
+  const [pendingCode, setPendingCode] = useState(urlRoom ?? '');
   const [pendingSmallBlind, setPendingSmallBlind] = useState(10);
   const [pendingBigBlind, setPendingBigBlind] = useState(20);
   const [pendingPlayerName, setPendingPlayerName] = useState('');

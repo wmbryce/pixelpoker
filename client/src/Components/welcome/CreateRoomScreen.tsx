@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { getSavedPlayerName } from '../../lib/clientSession';
 
 interface Props {
   onCreated: (code: string, playerName: string, smallBlind: number, bigBlind: number, aiCount: number) => void;
@@ -7,7 +8,7 @@ interface Props {
 
 function CreateRoomScreen({ onCreated, onBack }: Props) {
   const [roomName, setRoomName] = useState('');
-  const [playerName, setPlayerName] = useState('');
+  const [playerName, setPlayerName] = useState(getSavedPlayerName() ?? '');
   const [smallBlind, setSmallBlind] = useState(10);
   const [bigBlind, setBigBlind] = useState(20);
   const [aiCount, setAiCount] = useState(0);

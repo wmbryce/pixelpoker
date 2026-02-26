@@ -54,8 +54,19 @@ interface PlayerSession {
   room: string;
   playerIndex: number;
   name: string;
+  clientId: string;
 }
+// Keyed by socket.id — cleared on disconnect
 const sessions = new Map<string, PlayerSession>();
+
+// Keyed by clientId — persistent across reconnects, never cleared on disconnect
+interface ClientRecord {
+  room: string;
+  playerIndex: number;
+  name: string;
+  socketId: string | null;
+}
+const clientRecords = new Map<string, ClientRecord>();
 
 // ──────────────────────────────────────────────────────────────────────────────
 // AI decision logic
@@ -323,7 +334,7 @@ startTurnTimer = (room: string) => {
 io.on('connection', (socket) => {
   console.log(chalk.green(`+ connected: ${socket.id}`));
 
-  socket.on('joinRoom', ({ username, room, smallBlind, bigBlind, aiCount }) => {
+  socket.on('joinRoom', ({ username, room, clientId, smallBlind, bigBlind, aiCount }) => {
     socket.join(room);
 
     if (!rooms.has(room)) {
@@ -332,8 +343,11 @@ io.on('connection', (socket) => {
 
     const game = rooms.get(room)!;
     const playerIndex = game.players.length;
-    game.players.push(createPlayer(socket.id, username));
-    sessions.set(socket.id, { room, playerIndex, name: username });
+    game.players.push(createPlayer(clientId, username));
+
+    const sessionData: PlayerSession = { room, playerIndex, name: username, clientId };
+    sessions.set(socket.id, sessionData);
+    clientRecords.set(clientId, { room, playerIndex, name: username, socketId: socket.id });
 
     // Add AI players (only when the room is first created, i.e. this is player 0)
     if (playerIndex === 0 && aiCount && aiCount > 0) {
@@ -351,7 +365,35 @@ io.on('connection', (socket) => {
       .emit('message', { userId: socket.id, username: 'System', text: `${username} joined` });
 
     broadcastGame(room);
-    console.log(chalk.blue(`  ${username} joined room "${room}" as player ${playerIndex}`));
+    console.log(chalk.blue(`  ${username} joined room "${room}" as player ${playerIndex} [cid: ${clientId.slice(0, 8)}]`));
+  });
+
+  socket.on('rejoinRoom', ({ clientId, room }) => {
+    const record = clientRecords.get(clientId);
+
+    if (!record || record.room !== room) {
+      socket.emit('error', { message: 'SESSION_NOT_FOUND' });
+      return;
+    }
+
+    const game = rooms.get(room);
+    if (!game) {
+      socket.emit('error', { message: 'ROOM_NOT_FOUND' });
+      return;
+    }
+
+    socket.join(room);
+    sessions.set(socket.id, { room: record.room, playerIndex: record.playerIndex, name: record.name, clientId });
+    clientRecords.set(clientId, { ...record, socketId: socket.id });
+
+    socket.emit('roomJoined', { playerIndex: record.playerIndex, game });
+
+    socket.broadcast
+      .to(room)
+      .emit('message', { userId: socket.id, username: 'System', text: `${record.name} reconnected` });
+
+    broadcastGame(room);
+    console.log(chalk.cyan(`  ${record.name} rejoined room "${room}" as player ${record.playerIndex} [cid: ${clientId.slice(0, 8)}]`));
   });
 
   socket.on('chat', (text) => {
@@ -393,9 +435,13 @@ io.on('connection', (socket) => {
     const session = sessions.get(socket.id);
     sessions.delete(socket.id);
     if (session) {
+      // Mark the persistent record as having no active socket — do NOT delete it
+      const record = clientRecords.get(session.clientId);
+      if (record) clientRecords.set(session.clientId, { ...record, socketId: null });
+
       clearTurnTimer(session.room);
       clearAutoDeal(session.room);
-      console.log(chalk.red(`- disconnected: ${session.name} (${socket.id})`));
+      console.log(chalk.red(`- disconnected: ${session.name} (${socket.id}) [cid: ${session.clientId.slice(0, 8)}]`));
     }
   });
 });

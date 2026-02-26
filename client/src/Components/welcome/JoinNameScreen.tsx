@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { getSavedPlayerName } from '../../lib/clientSession';
 
 interface Props {
   roomCode: string;
@@ -7,7 +8,7 @@ interface Props {
 }
 
 function JoinNameScreen({ roomCode, onJoin, onBack }: Props) {
-  const [playerName, setPlayerName] = useState('');
+  const [playerName, setPlayerName] = useState(getSavedPlayerName() ?? '');
   const [error, setError] = useState('');
 
   const handleJoin = () => {
