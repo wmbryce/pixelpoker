@@ -40,6 +40,12 @@ const LABEL_COLORS: Record<string, string> = {
   BB:     'bg-vice-pink/20 text-vice-pink border border-vice-pink/50',
 };
 
+const ACTION_COLORS: Record<string, string> = {
+  FOLD:  'text-vice-pink',
+  CHECK: 'text-vice-muted',
+  CALL:  'text-vice-cyan',
+};
+
 function Player({
   player,
   index,
@@ -103,11 +109,6 @@ function Player({
     socket.emit('gameAction', { type: 'raise', playerIndex: index, bet: allInBet });
   };
 
-  const ACTION_COLORS: Record<string, string> = {
-    FOLD:  'text-vice-pink',
-    CHECK: 'text-vice-muted',
-    CALL:  'text-vice-cyan',
-  };
   const actionColor = player.lastAction
     ? (player.lastAction.startsWith('RAISE') ? 'text-vice-gold' : (ACTION_COLORS[player.lastAction] ?? 'text-vice-muted'))
     : '';

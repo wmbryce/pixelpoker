@@ -45,17 +45,6 @@ export interface Poker {
 export const SMALL_BLIND = 10;
 export const BIG_BLIND = 20;
 
-export const GAME_STAGES = [
-  'pre-flop',
-  'flop',
-  'turn',
-  'river',
-  'Finish',
-  'Reset',
-] as const;
-
-export type GameStage = (typeof GAME_STAGES)[number];
-
 // ──────────────────────────────────────────────────────────────────────────────
 // Socket.IO event types
 // ──────────────────────────────────────────────────────────────────────────────

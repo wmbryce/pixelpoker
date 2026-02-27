@@ -15,8 +15,13 @@ import {
 } from './lib/clientSession';
 
 function App() {
-  const { username, room, setUsername, setRoom, setGame, setMyPlayerIndex, setClientId } =
-    useGameStore();
+  const username = useGameStore((s) => s.username);
+  const room = useGameStore((s) => s.room);
+  const setUsername = useGameStore((s) => s.setUsername);
+  const setRoom = useGameStore((s) => s.setRoom);
+  const setGame = useGameStore((s) => s.setGame);
+  const setMyPlayerIndex = useGameStore((s) => s.setMyPlayerIndex);
+  const setClientId = useGameStore((s) => s.setClientId);
 
   // True while a silent auto-rejoin is in flight — prevents WelcomeView flashing
   const [isAttemptingRejoin, setIsAttemptingRejoin] = useState(false);

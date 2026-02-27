@@ -3,11 +3,10 @@ export type {
   CardType,
   PlayerType,
   Poker,
-  GameStage,
   GameAction,
   ActionType,
   ChatMessage,
   ServerToClientEvents,
   ClientToServerEvents,
 } from '@pixelpoker/shared';
-export { GAME_STAGES, SMALL_BLIND, BIG_BLIND } from '@pixelpoker/shared';
+export { SMALL_BLIND, BIG_BLIND } from '@pixelpoker/shared';

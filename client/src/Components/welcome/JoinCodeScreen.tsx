@@ -1,6 +1,5 @@
 import { useState } from 'react';
-
-const SERVER_URL = 'http://localhost:8000';
+import { SERVER_URL } from '../../config';
 
 interface Props {
   onFound: (code: string) => void;

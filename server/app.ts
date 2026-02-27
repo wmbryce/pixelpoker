@@ -457,8 +457,8 @@ io.on('connection', (socket) => {
       const record = clientRecords.get(session.clientId);
       if (record) clientRecords.set(session.clientId, { ...record, socketId: null });
 
-      clearTurnTimer(session.room);
-      clearAutoDeal(session.room);
+      // Do NOT clear the turn timer — let it fire so the game doesn't freeze
+      // if the disconnected player had the action. Auto-fold handles it.
       console.log(chalk.red(`- disconnected: ${session.name} (${socket.id}) [cid: ${session.clientId.slice(0, 8)}]`));
     }
   });

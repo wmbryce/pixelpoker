@@ -9,6 +9,7 @@ function NotFoundScreen() {
         if (s <= 1) {
           clearInterval(id);
           window.location.replace('/');
+          return 0;
         }
         return s - 1;
       });

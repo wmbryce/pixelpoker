@@ -1,4 +1,4 @@
-import { cloneDeep, isEqual } from 'lodash';
+import { cloneDeep } from 'lodash';
 import { generateDeck } from './deck';
 import type { CardType, Poker, PlayerType } from './types';
 import { SMALL_BLIND, BIG_BLIND } from './types';
@@ -62,14 +62,15 @@ export const initializeGame = (smallBlind = SMALL_BLIND, bigBlind = BIG_BLIND): 
 // ──────────────────────────────────────────────────────────────────────────────
 
 const dealPreFlop = (game: Poker): Poker => {
-  const cardsToDeal = game.players.length * 2;
-  let seat = game.dealer + 1 < game.players.length ? game.dealer + 1 : 0;
+  const n = game.players.length;
+  const cardsToDeal = n * 2;
+  let seat = (game.dealer + 1) % n;
   const deck = game.deck.slice();
 
   for (let i = 0; i < cardsToDeal; i++) {
     const card = deck.pop();
     if (card) game.players[seat].cards.push(card);
-    seat = seat + 1 < game.players.length ? seat + 1 : 0;
+    seat = (seat + 1) % n;
   }
 
   game.deck = deck;
@@ -190,17 +191,10 @@ const determineWinner = (game: Poker): void => {
   const applyPot = (amount: number, eligible: number[]) => {
     const eligibleHands = eligible.map((idx) => handByIndex.get(idx)!);
     const winningHands: SolverHand[] = Hand.winners(eligibleHands);
-    const winningPool: string[] = winningHands[0].cards.map(
-      (c: { value: string; suit: string }) => c.value + c.suit,
-    );
 
-    const potWinners: number[] = [];
-    for (let i = 0; i < eligible.length; i++) {
-      const pool = eligibleHands[i].cards.map(
-        (c: { value: string; suit: string }) => c.value + c.suit,
-      );
-      if (isEqual(winningPool, pool)) potWinners.push(eligible[i]);
-    }
+    // Use reference identity: Hand.winners returns references to the same objects
+    // from the input array, so includes() correctly identifies all tied winners.
+    const potWinners: number[] = eligible.filter((_, i) => winningHands.includes(eligibleHands[i]));
 
     const share = Math.floor(amount / potWinners.length);
     const remainder = amount % potWinners.length;
@@ -285,7 +279,7 @@ const resetGame = (game: Poker): Poker => {
   game.timerDeadline = null;
   game.actionsRemaining = 0;
   game.lastRaiseSize = game.bigBlind;
-  game.dealer = game.dealer + 1 < game.players.length ? game.dealer + 1 : 0;
+  game.dealer = (game.dealer + 1) % game.players.length;
   for (const player of game.players) {
     player.cards = [];
     player.isActive = true;
