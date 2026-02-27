@@ -17,6 +17,8 @@ export interface PlayerType {
   lastBet: number;
   checked: boolean;
   isActive: boolean;
+  isAllIn: boolean;
+  contributed: number; // total chips put into the pot this hand (for side pot math)
   isAI?: boolean;
   lastAction: string | null;
 }
@@ -37,6 +39,7 @@ export interface Poker {
   bigBlind: number;
   timerDeadline: number | null;
   actionsRemaining: number;
+  lastRaiseSize: number; // size of last raise increment — defines minimum re-raise
 }
 
 export const SMALL_BLIND = 10;

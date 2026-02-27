@@ -190,11 +190,19 @@ const processGameAction = (game: Poker, action: GameAction): Poker | null => {
   let result: Poker | null = null;
 
   if (type === 'raise' && bet !== undefined) {
-    ({ result } = raise(game, playerIndex, bet));
+    const raiseResult = raise(game, playerIndex, bet);
+    result = raiseResult.result;
     if (result) {
-      // Everyone except the raiser must act again
-      const numActive = result.players.filter((p) => p.isActive).length;
-      result.actionsRemaining = numActive - 1;
+      if (raiseResult.isFullRaise) {
+        // Full raise: everyone except the raiser must act again
+        const numCanAct = result.players.filter((p) => p.isActive && !p.isAllIn).length;
+        const raiserIsAllIn = result.players[playerIndex].isAllIn;
+        // If raiser went all-in they can't act again, so don't subtract them from count
+        result.actionsRemaining = raiserIsAllIn ? numCanAct : Math.max(0, numCanAct - 1);
+      } else {
+        // Short all-in: doesn't reopen betting, treat like a call
+        result.actionsRemaining = Math.max(0, result.actionsRemaining - 1);
+      }
     }
   } else if (type === 'call') {
     ({ result } = call(game, playerIndex));
@@ -229,12 +237,22 @@ const handleActionResult = (room: string, result: Poker) => {
   }
 
   const activePlayers = result.players.filter((p) => p.isActive);
+  const playersWhoCanAct = result.players.filter((p) => p.isActive && !p.isAllIn);
 
-  if (result.actionsRemaining <= 0) {
+  if (result.actionsRemaining <= 0 || playersWhoCanAct.length <= 1) {
     if (activePlayers.length <= 1) {
       // Everyone else folded — award pot directly (no pokersolver needed)
       const final = awardPotDirectly(result);
       rooms.set(room, final);
+      broadcastGame(room);
+      scheduleAutoDeal(room);
+    } else if (playersWhoCanAct.length <= 1) {
+      // All remaining players are all-in — run out the board to showdown
+      let current = result;
+      while (current.stage >= 1 && current.stage < 5) {
+        current = advanceGameStage(current);
+      }
+      rooms.set(room, current);
       broadcastGame(room);
       scheduleAutoDeal(room);
     } else {
@@ -269,8 +287,8 @@ startTurnTimer = (room: string) => {
     return;
   }
 
-  const activePlayers = game.players.filter((p) => p.isActive).length;
-  if (activePlayers <= 1) {
+  const playersWhoCanAct = game.players.filter((p) => p.isActive && !p.isAllIn).length;
+  if (playersWhoCanAct <= 1) {
     game.timerDeadline = null;
     return;
   }

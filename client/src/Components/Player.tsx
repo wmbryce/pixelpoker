@@ -19,7 +19,7 @@ interface Props {
   winnerCards: string[];
   actionOn: number;
   currentBet: number;
-  bigBlind: number;
+  lastRaiseSize: number;
   numPlayers: number;
   isMe: boolean;
   timerDeadline: number | null;
@@ -49,7 +49,7 @@ function Player({
   winnerCards,
   actionOn,
   currentBet,
-  bigBlind,
+  lastRaiseSize,
   numPlayers,
   isMe,
   timerDeadline,
@@ -57,7 +57,7 @@ function Player({
   const [bet, setBet] = useState(20);
   const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
 
-  const minRaise = currentBet + bigBlind;
+  const minRaise = currentBet + lastRaiseSize;
 
   const isMyTurn = isMe && actionOn === index && player.isActive;
   const isThisTurn = actionOn === index && player.isActive;
@@ -95,6 +95,12 @@ function Player({
   const sendAction = (type: GameAction['type']) => {
     const action: GameAction = { type, playerIndex: index, bet };
     socket.emit('gameAction', action);
+  };
+
+  const sendAllIn = () => {
+    // bet = total commitment this round (what's already in + remaining stack)
+    const allInBet = player.lastBet + player.stack;
+    socket.emit('gameAction', { type: 'raise', playerIndex: index, bet: allInBet });
   };
 
   const ACTION_COLORS: Record<string, string> = {
@@ -156,8 +162,15 @@ function Player({
         ${player.stack}
       </p>
 
+      {/* All-in badge */}
+      {player.isAllIn && player.isActive && (
+        <p className="text-xs font-bold tracking-widest uppercase w-full text-left text-vice-gold animate-pulse">
+          ALL IN
+        </p>
+      )}
+
       {/* Last action — shown for other players when not actively their turn */}
-      {!isMe && player.lastAction && !isThisTurn && (
+      {!isMe && player.lastAction && !isThisTurn && !player.isAllIn && (
         <p className={`text-xs font-bold tracking-widest uppercase w-full text-left ${actionColor}`}>
           {player.lastAction}
         </p>
@@ -227,6 +240,13 @@ function Player({
             className="w-full bg-vice-cyan text-vice-bg text-xs py-2 font-bold tracking-widest uppercase btn-pixel disabled:opacity-30 hover:brightness-110"
           >
             {currentBet - player.lastBet === 0 ? 'CHECK' : `CALL $${currentBet - player.lastBet}`}
+          </button>
+          <button
+            onClick={sendAllIn}
+            disabled={!isMyTurn || player.stack === 0}
+            className="w-full bg-vice-gold text-vice-bg text-xs py-2 font-bold tracking-widest uppercase btn-pixel disabled:opacity-30 hover:brightness-110"
+          >
+            ALL IN ${player.lastBet + player.stack}
           </button>
           <button
             onClick={() => sendAction('fold')}

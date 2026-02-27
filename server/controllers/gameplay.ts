@@ -18,6 +18,8 @@ export const createPlayer = (id: string, name: string): PlayerType => ({
   cards: [],
   lastBet: 0,
   isActive: true,
+  isAllIn: false,
+  contributed: 0,
   checked: false,
   lastAction: null,
 });
@@ -29,6 +31,8 @@ export const createAIPlayer = (seatIndex: number): PlayerType => ({
   cards: [],
   lastBet: 0,
   isActive: true,
+  isAllIn: false,
+  contributed: 0,
   checked: false,
   isAI: true,
   lastAction: null,
@@ -50,6 +54,7 @@ export const initializeGame = (smallBlind = SMALL_BLIND, bigBlind = BIG_BLIND): 
   bigBlind,
   timerDeadline: null,
   actionsRemaining: 0,
+  lastRaiseSize: bigBlind,
 });
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -97,23 +102,71 @@ const postBlinds = (game: Poker): void => {
   const sbAmount = Math.min(game.smallBlind, game.players[sbIndex].stack);
   game.players[sbIndex].stack -= sbAmount;
   game.players[sbIndex].lastBet = sbAmount;
+  game.players[sbIndex].contributed += sbAmount;
+  game.players[sbIndex].isAllIn = game.players[sbIndex].stack === 0;
   game.pot += sbAmount;
 
   const bbAmount = Math.min(game.bigBlind, game.players[bbIndex].stack);
   game.players[bbIndex].stack -= bbAmount;
   game.players[bbIndex].lastBet = bbAmount;
+  game.players[bbIndex].contributed += bbAmount;
+  game.players[bbIndex].isAllIn = game.players[bbIndex].stack === 0;
   game.pot += bbAmount;
 
   game.currentBet = game.bigBlind;
   game.actionOn = (game.dealer + 3) % n;
 
-  // All players must act pre-flop (including blinds who can raise)
-  game.actionsRemaining = n;
+  // All non-all-in players must act pre-flop (including blinds who can raise)
+  game.actionsRemaining = game.players.filter((p) => p.isActive && !p.isAllIn).length;
 };
 
 // ──────────────────────────────────────────────────────────────────────────────
-// Showdown
+// Side pots
 // ──────────────────────────────────────────────────────────────────────────────
+
+interface SidePot {
+  amount: number;
+  eligible: number[]; // player indexes who can win this pot
+}
+
+const computeSidePots = (players: PlayerType[]): SidePot[] => {
+  const totalContributed = players.reduce((s, p) => s + p.contributed, 0);
+  if (totalContributed === 0) return []; // no contribution data — caller falls back
+
+  // Unique contribution levels, sorted ascending
+  const levels = [...new Set(players.map((p) => p.contributed).filter((c) => c > 0))].sort(
+    (a, b) => a - b,
+  );
+
+  const pots: SidePot[] = [];
+  let prevLevel = 0;
+
+  for (const level of levels) {
+    const increment = level - prevLevel;
+    const numContributors = players.filter((p) => p.contributed >= level).length;
+    const potAmount = increment * numContributors;
+
+    // Active (not folded) players who contributed at least this much are eligible
+    const eligible = players
+      .map((p, i) => ({ p, i }))
+      .filter(({ p }) => p.isActive && p.contributed >= level)
+      .map(({ i }) => i);
+
+    if (potAmount > 0 && eligible.length > 0) {
+      pots.push({ amount: potAmount, eligible });
+    }
+
+    prevLevel = level;
+  }
+
+  return pots;
+};
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Showdown — winner determination + winnings distribution
+// ──────────────────────────────────────────────────────────────────────────────
+
+type SolverHand = ReturnType<typeof Hand.solve>;
 
 const solverCards = (cards: CardType[]): string[] => cards.map((c) => c.value);
 
@@ -122,43 +175,84 @@ const determineWinner = (game: Poker): void => {
     .map((p, i) => ({ player: p, index: i }))
     .filter(({ player }) => player.isActive);
 
-  const hands = activePlayers.map(({ player }) =>
-    Hand.solve(solverCards([...game.tableCards, ...player.cards]))
+  const handByIndex = new Map<number, SolverHand>(
+    activePlayers.map(({ player, index }) => [
+      index,
+      Hand.solve(solverCards([...game.tableCards, ...player.cards])),
+    ]),
   );
 
-  const winningHands: typeof hands = Hand.winners(hands);
-  const winningPool = winningHands[0].cards.map((c: { value: string; suit: string }) => c.value + c.suit);
+  const sidePots = computeSidePots(game.players);
+  const totalWon = new Map<number, number>();
+  const allWinners = new Set<number>();
+  let bestHand: SolverHand | null = null;
 
-  const winningIndexes: number[] = [];
-  for (let i = 0; i < hands.length; i++) {
-    const pool = hands[i].cards.map((c: { value: string; suit: string }) => c.value + c.suit);
-    if (isEqual(winningPool, pool)) winningIndexes.push(activePlayers[i].index);
+  const applyPot = (amount: number, eligible: number[]) => {
+    const eligibleHands = eligible.map((idx) => handByIndex.get(idx)!);
+    const winningHands: SolverHand[] = Hand.winners(eligibleHands);
+    const winningPool: string[] = winningHands[0].cards.map(
+      (c: { value: string; suit: string }) => c.value + c.suit,
+    );
+
+    const potWinners: number[] = [];
+    for (let i = 0; i < eligible.length; i++) {
+      const pool = eligibleHands[i].cards.map(
+        (c: { value: string; suit: string }) => c.value + c.suit,
+      );
+      if (isEqual(winningPool, pool)) potWinners.push(eligible[i]);
+    }
+
+    const share = Math.floor(amount / potWinners.length);
+    const remainder = amount % potWinners.length;
+    for (const idx of potWinners) {
+      totalWon.set(idx, (totalWon.get(idx) ?? 0) + share);
+      allWinners.add(idx);
+    }
+    if (remainder > 0) {
+      totalWon.set(potWinners[0], (totalWon.get(potWinners[0]) ?? 0) + remainder);
+    }
+
+    if (!bestHand) bestHand = winningHands[0];
+  };
+
+  const allActiveIndexes = activePlayers.map(({ index }) => index);
+
+  if (sidePots.length > 0) {
+    // If contributions don't cover the full pot (e.g. pot was set manually in tests,
+    // or chips went in before tracking started), distribute the remainder first
+    // as a pot that all active players are eligible for.
+    const trackedTotal = sidePots.reduce((s, p) => s + p.amount, 0);
+    if (trackedTotal < game.pot) {
+      applyPot(game.pot - trackedTotal, allActiveIndexes);
+    }
+    for (const { amount, eligible } of sidePots) {
+      applyPot(amount, eligible);
+    }
+  } else {
+    // No contribution tracking data — split full pot among all active players
+    applyPot(game.pot, allActiveIndexes);
   }
 
-  game.winner = winningIndexes;
-  const best = winningHands[0];
-  game.winnerHandName = (best.name === 'Straight Flush' && best.descr === 'Royal Flush')
-    ? 'Royal Flush'
-    : (best.name as string);
-  // CardType.value is now in pokersolver format ('T' not '10'), so concatenate directly.
-  game.winnerCards = winningHands[0].cards.map(
-    (c: { value: string; suit: string }) => c.value + c.suit,
-  );
-};
-
-const distributeWinnings = (game: Poker): void => {
-  const n = game.winner.length;
-  if (n === 0) return;
-  const share = Math.floor(game.pot / n);
-  const remainder = game.pot % n;
-  for (const idx of game.winner) {
-    game.players[idx].stack += share;
+  for (const [idx, amount] of totalWon.entries()) {
+    game.players[idx].stack += amount;
   }
-  game.pot = remainder;
+  game.pot = 0;
+
+  game.winner = [...allWinners];
+  if (bestHand) {
+    const h = bestHand as SolverHand;
+    game.winnerHandName =
+      h.name === 'Straight Flush' && h.descr === 'Royal Flush' ? 'Royal Flush' : (h.name as string);
+    game.winnerCards = h.cards.map(
+      (c: { value: string; suit: string }) => c.value + c.suit,
+    );
+  }
 };
 
-// Award pot directly to the last remaining active player without using pokersolver.
-// Used when everyone else folds before the board is complete.
+// ──────────────────────────────────────────────────────────────────────────────
+// Award pot directly (everyone else folded — no pokersolver needed)
+// ──────────────────────────────────────────────────────────────────────────────
+
 export const awardPotDirectly = (game: Poker): Poker => {
   const next = cloneDeep(game);
   const active = next.players.map((p, i) => ({ p, i })).filter(({ p }) => p.isActive);
@@ -176,6 +270,10 @@ export const awardPotDirectly = (game: Poker): Poker => {
   return next;
 };
 
+// ──────────────────────────────────────────────────────────────────────────────
+// Reset
+// ──────────────────────────────────────────────────────────────────────────────
+
 const resetGame = (game: Poker): Poker => {
   game.deck = generateDeck();
   game.tableCards = [];
@@ -186,10 +284,13 @@ const resetGame = (game: Poker): Poker => {
   game.currentBet = 0;
   game.timerDeadline = null;
   game.actionsRemaining = 0;
+  game.lastRaiseSize = game.bigBlind;
   game.dealer = game.dealer + 1 < game.players.length ? game.dealer + 1 : 0;
   for (const player of game.players) {
     player.cards = [];
     player.isActive = true;
+    player.isAllIn = false;
+    player.contributed = 0;
     player.lastBet = 0;
     player.checked = false;
     player.lastAction = null;
@@ -210,27 +311,36 @@ export const advanceGameStage = (game: Poker): Poker => {
     dealCommunityCards(next);
   } else if (next.stage === 4) {
     determineWinner(next);
-    distributeWinnings(next);
   } else if (next.stage === 5) {
     return resetGame(next);
   }
 
   next.stage += 1;
   next.currentBet = 0;
+  next.lastRaiseSize = next.bigBlind; // min raise resets each street
   for (const player of next.players) {
     player.lastBet = 0;
     player.checked = false;
     player.lastAction = null;
   }
 
-  // Post blinds after the pre-flop deal and bet-state reset (also sets actionsRemaining)
+  // Post blinds after the pre-flop deal (also sets actionsRemaining and actionOn)
   if (next.stage === 1) {
     postBlinds(next);
   }
 
-  // For flop / turn / river betting rounds, all active players need to act
+  // For flop / turn / river: set first-to-act and actions remaining
   if (next.stage >= 2 && next.stage <= 4) {
-    next.actionsRemaining = next.players.filter((p) => p.isActive).length;
+    next.actionsRemaining = next.players.filter((p) => p.isActive && !p.isAllIn).length;
+
+    // First active non-all-in player left of the dealer
+    const n = next.players.length;
+    let firstToAct = (next.dealer + 1) % n;
+    for (let i = 0; i < n; i++) {
+      if (next.players[firstToAct].isActive && !next.players[firstToAct].isAllIn) break;
+      firstToAct = (firstToAct + 1) % n;
+    }
+    next.actionOn = firstToAct;
   }
 
   return next;
