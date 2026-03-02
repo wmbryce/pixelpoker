@@ -1,3 +1,5 @@
+import path from 'path';
+import { fileURLToPath } from 'url';
 import express from 'express';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
@@ -13,8 +15,9 @@ import { initializeGame, createPlayer, createAIPlayer, advanceGameStage, awardPo
 import { SMALL_BLIND, BIG_BLIND } from './controllers/types';
 import { raise, call, fold, nextPlayer } from './controllers/actions';
 
-const PORT = 8000;
-const CORS_ORIGIN = 'http://localhost:3000';
+const PORT = Number(process.env.PORT) || 8000;
+const CORS_ORIGIN = process.env.CLIENT_ORIGIN ?? 'http://localhost:3000';
+const IS_PROD = process.env.NODE_ENV === 'production';
 const TURN_DURATION_MS = 30_000;
 const AUTO_DEAL_DELAY_MS = 4_000;
 const MAX_AI_PLAYERS = 5;
@@ -26,10 +29,10 @@ const MAX_AI_PLAYERS = 5;
 const app = express();
 const httpServer = createServer(app);
 const io = new Server<ClientToServerEvents, ServerToClientEvents>(httpServer, {
-  cors: { origin: CORS_ORIGIN },
+  cors: IS_PROD ? undefined : { origin: CORS_ORIGIN },
 });
 
-app.use(cors({ origin: CORS_ORIGIN }));
+if (!IS_PROD) app.use(cors({ origin: CORS_ORIGIN }));
 app.use(express.json());
 
 // REST health check
@@ -41,6 +44,15 @@ app.get('/health', (_req, res) => {
 app.get('/rooms/:code', (req, res) => {
   res.json({ exists: rooms.has(req.params.code) });
 });
+
+// In production the Express server also serves the built React client
+if (IS_PROD) {
+  const clientDist = path.join(path.dirname(fileURLToPath(import.meta.url)), '../client/dist');
+  app.use(express.static(clientDist));
+  app.get('*', (_req, res) => {
+    res.sendFile(path.join(clientDist, 'index.html'));
+  });
+}
 
 // ──────────────────────────────────────────────────────────────────────────────
 // In-memory state

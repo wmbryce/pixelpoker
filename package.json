@@ -5,7 +5,8 @@
   "workspaces": ["client", "server", "shared"],
   "scripts": {
     "dev": "concurrently \"bun --filter server dev\" \"bun --filter client dev\"",
-    "build": "bun --filter shared build && bun --filter server build && bun --filter client build",
+    "build": "bun --filter client build",
+    "start": "bun --filter server start",
     "lint": "eslint . --ext .ts,.tsx --ignore-path .gitignore",
     "format": "prettier --write \"**/*.{ts,tsx,json,md}\" --ignore-path .gitignore",
     "test": "bun --filter server test"
