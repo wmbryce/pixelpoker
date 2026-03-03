@@ -1,11 +1,22 @@
 const LS_CLIENT_ID = 'pixelpoker_clientId';
 const LS_PLAYER_NAME = 'pixelpoker_playerName';
 
+/** Generates a UUID v4, falling back to Math.random in non-secure contexts (plain HTTP). */
+function generateUUID(): string {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);
+  });
+}
+
 /** Returns the stored clientId, generating and persisting one if absent. */
 export function getOrCreateClientId(): string {
   let id = localStorage.getItem(LS_CLIENT_ID);
   if (!id) {
-    id = crypto.randomUUID();
+    id = generateUUID();
     localStorage.setItem(LS_CLIENT_ID, id);
   }
   return id;
