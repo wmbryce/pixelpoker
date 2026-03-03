@@ -2,15 +2,16 @@
 set -euo pipefail
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+BUN="$HOME/.bun/bin/bun"
 
 echo "→ Pulling latest changes..."
 git -C "$REPO_DIR" pull origin master
 
 echo "→ Installing dependencies..."
-bun install --cwd "$REPO_DIR" --frozen-lockfile
+"$BUN" install --cwd "$REPO_DIR" --frozen-lockfile
 
 echo "→ Building client..."
-bun --filter client build
+"$BUN" --filter client build
 
 echo "→ Restarting server..."
 pm2 restart "$REPO_DIR/ecosystem.config.cjs" --update-env 2>/dev/null \
