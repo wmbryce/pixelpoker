@@ -11,7 +11,7 @@ echo "→ Installing dependencies..."
 "$BUN" install --cwd "$REPO_DIR" --frozen-lockfile
 
 echo "→ Building client..."
-"$BUN" --filter client build
+"$BUN" --cwd "$REPO_DIR" --filter client build
 
 echo "→ Restarting server..."
 pm2 restart "$REPO_DIR/ecosystem.config.cjs" --update-env 2>/dev/null \
