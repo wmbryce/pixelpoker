@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'bun:test';
-import { initializeGame, createPlayer, advanceGameStage } from '../controllers/gameplay';
+import { initializeGame, createPlayer, advanceGameStage, awardPotDirectly } from '../controllers/gameplay';
 import { raise, call, nextPlayer } from '../controllers/actions';
 import type { Poker } from '../controllers/types';
 import type { CardType } from '@pixelpoker/shared';
@@ -364,5 +364,158 @@ describe('chip conservation', () => {
     // Showdown + distribution
     game = advanceGameStage(game);
     expect(totalChips(game)).toBe(initial);
+  });
+});
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Bust mechanics — resetGame marks stack=0 players inactive
+// ──────────────────────────────────────────────────────────────────────────────
+
+describe('resetGame (bust mechanics)', () => {
+  it('marks a player with stack=0 as inactive after reset', () => {
+    // Set up a post-showdown state with one busted player
+    const game = makeGame(2);
+    game.stage = 5;
+    game.players[0].stack = 2000; // won everything
+    game.players[1].stack = 0;    // busted
+
+    const reset = advanceGameStage(game);
+    expect(reset.players[0].isActive).toBe(true);
+    expect(reset.players[1].isActive).toBe(false);
+  });
+
+  it('marks all busted players inactive but leaves solvent players active', () => {
+    const game = makeGame(3);
+    game.stage = 5;
+    game.players[0].stack = 3000;
+    game.players[1].stack = 0;
+    game.players[2].stack = 0;
+
+    const reset = advanceGameStage(game);
+    expect(reset.players[0].isActive).toBe(true);
+    expect(reset.players[1].isActive).toBe(false);
+    expect(reset.players[2].isActive).toBe(false);
+  });
+
+  it('preserves chip conservation when one player goes bust', () => {
+    // Simulate a hand where player 1 loses everything: pre-flop all-in
+    const game = makeGame(2);
+    const initial = totalChips(game); // 2000
+
+    let g = advanceGameStage(game); // pre-flop + blinds
+    // Player 0 (UTG/SB in 2-player) goes all-in
+    const { result: afterAllIn } = raise(g, g.actionOn, g.players[g.actionOn].stack + g.players[g.actionOn].lastBet);
+    g = afterAllIn!;
+    g.actionOn = nextPlayer(g, g.actionOn);
+    // Opponent calls
+    const { result: afterCall } = call(g, g.actionOn);
+    g = afterCall!;
+
+    // Advance to showdown
+    g = advanceGameStage(g); // flop
+    g = advanceGameStage(g); // turn
+    g = advanceGameStage(g); // river
+    g = advanceGameStage(g); // showdown (stage 5)
+
+    expect(totalChips(g)).toBe(initial);
+
+    const reset = advanceGameStage(g); // reset
+    expect(totalChips(reset)).toBe(initial);
+  });
+});
+
+// ──────────────────────────────────────────────────────────────────────────────
+// postBlinds with busted (inactive) players
+// ──────────────────────────────────────────────────────────────────────────────
+
+describe('postBlinds with busted players', () => {
+  it('skips a busted seat when assigning the small blind', () => {
+    // 3 players: dealer=0, player 1 busted → SB goes to player 2
+    const game = makeGame(3);
+    game.players[1].stack = 0;
+    game.players[1].isActive = false;
+
+    const next = advanceGameStage(game);
+
+    // Player 2 paid SB, player 0 paid BB (wraps), player 1 paid nothing
+    expect(next.players[2].lastBet).toBe(10);
+    expect(next.players[2].stack).toBe(990);
+    expect(next.players[0].lastBet).toBe(20);
+    expect(next.players[0].stack).toBe(980);
+    expect(next.players[1].lastBet).toBe(0);
+    expect(next.players[1].stack).toBe(0);
+  });
+
+  it('pot equals SB + BB even when a busted seat is skipped', () => {
+    const game = makeGame(3);
+    game.players[1].stack = 0;
+    game.players[1].isActive = false;
+
+    const next = advanceGameStage(game);
+    expect(next.pot).toBe(30); // 10 SB + 20 BB
+    expect(next.currentBet).toBe(20);
+  });
+
+  it('actionOn skips busted and all-in seats at the start of pre-flop', () => {
+    // 4 players: dealer=0, player 1 busted
+    // SB=2, BB=3, UTG should be first active non-all-in after BB → player 0
+    const game = makeGame(4);
+    game.players[1].stack = 0;
+    game.players[1].isActive = false;
+
+    const next = advanceGameStage(game);
+    // actionOn must not be the busted player
+    expect(next.players[next.actionOn].isActive).toBe(true);
+    expect(next.players[next.actionOn].isAllIn).toBe(false);
+  });
+});
+
+// ──────────────────────────────────────────────────────────────────────────────
+// awardPotDirectly
+// ──────────────────────────────────────────────────────────────────────────────
+
+describe('awardPotDirectly', () => {
+  it('gives the entire pot to the sole remaining active player', () => {
+    const game = makeGame(2);
+    game.pot = 200;
+    game.players[0].stack = 900;
+    game.players[1].isActive = false; // folded
+
+    const result = awardPotDirectly(game);
+    expect(result.winner).toEqual([0]);
+    expect(result.players[0].stack).toBe(1100); // 900 + 200
+    expect(result.pot).toBe(0);
+    expect(result.stage).toBe(5);
+  });
+
+  it('preserves chip conservation when awarding pot directly', () => {
+    const game = makeGame(2);
+    game.pot = 300;
+    game.players[0].stack = 850;
+    game.players[1].isActive = false;
+    const initial = totalChips(game);
+
+    const result = awardPotDirectly(game);
+    expect(totalChips(result)).toBe(initial);
+  });
+
+  it('does not modify the game when multiple active players remain', () => {
+    const game = makeGame(2);
+    game.pot = 100;
+
+    const result = awardPotDirectly(game);
+    expect(result.winner).toHaveLength(0);
+    expect(result.pot).toBe(100);
+    expect(result.stage).toBe(0); // unchanged
+  });
+
+  it('does not mutate the original game', () => {
+    const game = makeGame(2);
+    game.pot = 200;
+    game.players[1].isActive = false;
+
+    awardPotDirectly(game);
+    expect(game.pot).toBe(200);
+    expect(game.players[0].stack).toBe(1000);
   });
 });
