@@ -95,10 +95,25 @@ const dealCommunityCards = (game: Poker): Poker => {
 
 const postBlinds = (game: Poker): void => {
   const n = game.players.length;
-  if (n < 2) return;
+  const activePlayers = game.players.filter((p) => p.isActive);
+  if (activePlayers.length < 2) return;
 
-  const sbIndex = (game.dealer + 1) % n;
-  const bbIndex = (game.dealer + 2) % n;
+  // Walk from dealer to find the 1st and 2nd active seats (SB and BB),
+  // skipping busted (inactive) players so they never receive a blind assignment.
+  const nthActiveAfterDealer = (count: number): number => {
+    let found = 0;
+    for (let i = 1; i <= n; i++) {
+      const idx = (game.dealer + i) % n;
+      if (game.players[idx].isActive) {
+        found++;
+        if (found === count) return idx;
+      }
+    }
+    return (game.dealer + count) % n; // fallback (shouldn't be reached)
+  };
+
+  const sbIndex = nthActiveAfterDealer(1);
+  const bbIndex = nthActiveAfterDealer(2);
 
   const sbAmount = Math.min(game.smallBlind, game.players[sbIndex].stack);
   game.players[sbIndex].stack -= sbAmount;
@@ -115,7 +130,9 @@ const postBlinds = (game: Poker): void => {
   game.pot += bbAmount;
 
   game.currentBet = game.bigBlind;
-  game.actionOn = (game.dealer + 3) % n;
+
+  // UTG = first active non-all-in player after BB
+  game.actionOn = nthActiveAfterDealer(3);
 
   // All non-all-in players must act pre-flop (including blinds who can raise)
   game.actionsRemaining = game.players.filter((p) => p.isActive && !p.isAllIn).length;
@@ -282,7 +299,7 @@ const resetGame = (game: Poker): Poker => {
   game.dealer = (game.dealer + 1) % game.players.length;
   for (const player of game.players) {
     player.cards = [];
-    player.isActive = true;
+    player.isActive = player.stack > 0; // busted players sit out until they rebuy
     player.isAllIn = false;
     player.contributed = 0;
     player.lastBet = 0;

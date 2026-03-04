@@ -146,7 +146,25 @@ const scheduleAutoDeal = (room: string) => {
     const game = rooms.get(room);
     if (!game || game.stage !== 5) return;
 
-    const reset = advanceGameStage(game);  // 5 → 0
+    const reset = advanceGameStage(game); // 5 → 0 (resetGame — busted players set inactive)
+
+    // Auto-rebuy busted AI players so the game keeps moving
+    for (const player of reset.players) {
+      if (player.isAI && player.stack === 0) {
+        player.stack = 1000;
+        player.isActive = true;
+      }
+    }
+
+    // If fewer than 2 players can act, pause at stage 0 and wait for rebuys
+    const activePlayers = reset.players.filter((p) => p.isActive);
+    if (activePlayers.length < 2) {
+      rooms.set(room, reset);
+      broadcastGame(room);
+      console.log(chalk.yellow(`  paused at stage 0 in room "${room}" — waiting for rebuys`));
+      return;
+    }
+
     const dealt = advanceGameStage(reset); // 0 → 1 (deals pre-flop, posts blinds)
     rooms.set(room, dealt);
 
@@ -459,6 +477,25 @@ io.on('connection', (socket) => {
     game.smallBlind = smallBlind;
     game.bigBlind = bigBlind;
     broadcastGame(session.room);
+  });
+
+  socket.on('rebuy', ({ amount }) => {
+    const session = sessions.get(socket.id);
+    if (!session) return;
+
+    const game = rooms.get(session.room);
+    if (!game) return;
+
+    const player = game.players[session.playerIndex];
+    if (!player || player.stack > 0) return; // only busted players can rebuy
+
+    const validAmount = Math.max(100, Math.min(10_000, Math.floor(amount)));
+    player.stack = validAmount;
+    // If between hands, activate them immediately so they're dealt in next hand
+    if (game.stage === 0) player.isActive = true;
+
+    broadcastGame(session.room);
+    console.log(chalk.green(`  ${session.name} rebuys $${validAmount} in room "${session.room}"`));
   });
 
   socket.on('disconnect', () => {

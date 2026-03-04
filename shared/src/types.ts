@@ -76,4 +76,5 @@ export interface ClientToServerEvents {
   chat: (text: string) => void;
   gameAction: (data: GameAction) => void;
   changeBlinds: (data: { smallBlind: number; bigBlind: number }) => void;
+  rebuy: (data: { amount: number }) => void;
 }

@@ -68,6 +68,7 @@ function Player({
   const isMyTurn = isMe && actionOn === index && player.isActive;
   const isThisTurn = actionOn === index && player.isActive;
   const isWinner = winner.includes(index);
+  const isBusted = player.stack === 0 && !player.isAllIn;
 
   // Other players' cards are hidden until showdown (server sends cards: [])
   const isHidden = !isMe && player.isActive && player.cards.length === 0;
@@ -170,6 +171,13 @@ function Player({
         </p>
       )}
 
+      {/* Busted badge (for other players) */}
+      {isBusted && !isMe && (
+        <p className="text-xs font-bold tracking-widest uppercase w-full text-left text-vice-pink">
+          BUSTED
+        </p>
+      )}
+
       {/* Last action — shown for other players when not actively their turn */}
       {!isMe && player.lastAction && !isThisTurn && !player.isAllIn && (
         <p className={`text-xs font-bold tracking-widest uppercase w-full text-left ${actionColor}`}>
@@ -211,8 +219,23 @@ function Player({
         </div>
       )}
 
-      {/* Action controls (only for me) */}
-      {isMe && (
+      {/* Rebuy controls (only for me when busted) */}
+      {isMe && isBusted && (
+        <div className="flex flex-col items-stretch gap-2 mt-1 w-full">
+          <p className="text-vice-pink text-xs font-bold tracking-widest uppercase text-center animate-pulse">
+            BUSTED
+          </p>
+          <button
+            onClick={() => socket.emit('rebuy', { amount: 1000 })}
+            className="w-full bg-vice-gold text-vice-bg text-xs py-2 font-bold tracking-widest uppercase btn-pixel hover:brightness-110"
+          >
+            RE-BUY $1000
+          </button>
+        </div>
+      )}
+
+      {/* Action controls (only for me when not busted) */}
+      {isMe && !isBusted && (
         <div className="flex flex-col items-stretch gap-2 mt-1 w-full">
           {/* Bet amount */}
           <div className="flex items-center gap-2 border border-vice-muted/30 px-2 py-1 bg-vice-bg">
