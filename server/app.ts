@@ -498,6 +498,39 @@ io.on('connection', (socket) => {
     console.log(chalk.green(`  ${session.name} rebuys $${validAmount} in room "${session.room}"`));
   });
 
+  socket.on('leaveRoom', () => {
+    const session = sessions.get(socket.id);
+    if (!session) return;
+
+    const game = rooms.get(session.room);
+    if (!game) return;
+
+    const pi = session.playerIndex;
+    const player = game.players[pi];
+    if (!player) return;
+
+    sessions.delete(socket.id);
+    clientRecords.delete(session.clientId);
+
+    // If it's their turn mid-hand, fold first so the hand can continue
+    if (game.stage >= 1 && game.stage <= 4 && game.actionOn === pi && player.isActive) {
+      clearTurnTimer(session.room);
+      const { result } = fold(game, pi);
+      result.actionsRemaining = Math.max(0, result.actionsRemaining - 1);
+      result.actionOn = nextPlayer(result, pi);
+      result.players[pi].hasLeft = true;
+      result.players[pi].stack = 0;
+      handleActionResult(session.room, result);
+    } else {
+      player.isActive = false;
+      player.hasLeft = true;
+      player.stack = 0;
+      broadcastGame(session.room);
+    }
+
+    console.log(chalk.yellow(`  ${session.name} left room "${session.room}"`));
+  });
+
   socket.on('disconnect', () => {
     const session = sessions.get(socket.id);
     sessions.delete(socket.id);

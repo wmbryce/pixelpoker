@@ -5,7 +5,7 @@ import { useGameStore } from '../store/gameStore';
 import socket from '../socket';
 import type { GameAction } from '@pixelpoker/shared';
 
-function GameContainer() {
+function GameContainer({ onLeave }: { onLeave: () => void }) {
   const game = useGameStore((state) => state.game);
   const myPlayerIndex = useGameStore((state) => state.myPlayerIndex);
 
@@ -47,6 +47,14 @@ function GameContainer() {
 
   return (
     <div className="flex flex-col justify-center my-4 text-center">
+      <div className="flex justify-end px-4 mb-2">
+        <button
+          onClick={onLeave}
+          className="text-vice-muted/50 text-xs tracking-widest uppercase hover:text-vice-pink transition-colors"
+        >
+          ← LEAVE GAME
+        </button>
+      </div>
       <Table
         tableCards={game.tableCards}
         pot={game.pot}
@@ -108,7 +116,7 @@ function GameContainer() {
         )}
 
         <div className="flex flex-row justify-around items-start my-4 flex-wrap gap-4 px-4">
-          {game.players.map((player, index) => (
+          {game.players.map((player, index) => player.hasLeft ? null : (
             <Player
               key={player.id}
               player={player}

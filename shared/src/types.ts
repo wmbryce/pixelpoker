@@ -20,6 +20,7 @@ export interface PlayerType {
   isAllIn: boolean;
   contributed: number; // total chips put into the pot this hand (for side pot math)
   isAI?: boolean;
+  hasLeft?: boolean;
   lastAction: string | null;
 }
 
@@ -77,4 +78,5 @@ export interface ClientToServerEvents {
   gameAction: (data: GameAction) => void;
   changeBlinds: (data: { smallBlind: number; bigBlind: number }) => void;
   rebuy: (data: { amount: number }) => void;
+  leaveRoom: () => void;
 }
