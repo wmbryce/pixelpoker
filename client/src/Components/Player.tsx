@@ -23,6 +23,7 @@ interface Props {
   numPlayers: number;
   isMe: boolean;
   timerDeadline: number | null;
+  bigBlind: number;
 }
 
 const TURN_SECONDS = 30;
@@ -59,6 +60,7 @@ function Player({
   numPlayers,
   isMe,
   timerDeadline,
+  bigBlind,
 }: Props) {
   const [bet, setBet] = useState(20);
   const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
@@ -237,48 +239,82 @@ function Player({
       {/* Action controls (only for me when not busted) */}
       {isMe && !isBusted && (
         <div className="flex flex-col items-stretch gap-2 mt-1 w-full">
-          {/* Bet amount */}
-          <div className="flex items-center gap-2 border border-vice-muted/30 px-2 py-1 bg-vice-bg">
-            <label className="text-xs text-vice-muted uppercase tracking-wider whitespace-nowrap">Bet $</label>
-            <input
-              type="number"
-              min={minRaise}
-              max={player.stack}
-              value={bet}
-              disabled={!isMyTurn}
-              onChange={(e) => setBet(Number.parseInt(e.target.value, 10))}
-              className="flex-1 min-w-0 bg-transparent text-white text-sm text-right disabled:opacity-30 focus:outline-none"
-            />
-          </div>
+          {/* Bet slider */}
+          {(() => {
+            const sliderMin = minRaise;
+            const sliderMax = Math.max(minRaise, player.lastBet + player.stack);
+            const fillPct = sliderMax === sliderMin ? 100 : ((bet - sliderMin) / (sliderMax - sliderMin)) * 100;
+            return (
+              <div className="flex flex-col gap-1 border border-vice-muted/30 px-2 py-2 bg-vice-bg">
+                {/* Label + value */}
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-vice-muted uppercase tracking-wider">Bet</span>
+                  <span className="text-vice-gold font-bold tracking-wider text-sm">${bet}</span>
+                </div>
+                {/* Slider + stepper buttons */}
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setBet(Math.max(sliderMin, bet - bigBlind))}
+                    disabled={!isMyTurn}
+                    className="text-vice-muted text-base w-6 h-6 flex items-center justify-center border border-vice-muted/30 bg-vice-surface hover:border-vice-gold hover:text-vice-gold disabled:opacity-30 transition-colors select-none shrink-0"
+                  >
+                    −
+                  </button>
+                  <input
+                    type="range"
+                    min={sliderMin}
+                    max={sliderMax}
+                    value={bet}
+                    disabled={!isMyTurn}
+                    onChange={(e) => setBet(Number.parseInt(e.target.value, 10))}
+                    className="bet-slider flex-1 disabled:opacity-30"
+                    style={{
+                      background: `linear-gradient(to right, #7B2FBE 0%, #7B2FBE ${fillPct}%, #1a2035 ${fillPct}%, #1a2035 100%)`,
+                    }}
+                  />
+                  <button
+                    onClick={() => setBet(Math.min(sliderMax, bet + bigBlind))}
+                    disabled={!isMyTurn}
+                    className="text-vice-muted text-base w-6 h-6 flex items-center justify-center border border-vice-muted/30 bg-vice-surface hover:border-vice-gold hover:text-vice-gold disabled:opacity-30 transition-colors select-none shrink-0"
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+            );
+          })()}
 
-          <button
-            onClick={() => sendAction('raise')}
-            disabled={!isMyTurn}
-            className="w-full bg-vice-pink text-white text-xs py-2 font-bold tracking-widest uppercase btn-pixel disabled:opacity-30 hover:brightness-110"
-          >
-            RAISE ${bet}
-          </button>
-          <button
-            onClick={() => sendAction('call')}
-            disabled={!isMyTurn}
-            className="w-full bg-vice-cyan text-vice-bg text-xs py-2 font-bold tracking-widest uppercase btn-pixel disabled:opacity-30 hover:brightness-110"
-          >
-            {currentBet - player.lastBet === 0 ? 'CHECK' : `CALL $${currentBet - player.lastBet}`}
-          </button>
-          <button
-            onClick={sendAllIn}
-            disabled={!isMyTurn || player.stack === 0}
-            className="w-full bg-vice-gold text-vice-bg text-xs py-2 font-bold tracking-widest uppercase btn-pixel disabled:opacity-30 hover:brightness-110"
-          >
-            ALL IN ${player.lastBet + player.stack}
-          </button>
-          <button
-            onClick={() => sendAction('fold')}
-            disabled={!isMyTurn}
-            className="w-full bg-vice-surface border border-vice-muted/50 text-vice-muted text-xs py-2 font-bold tracking-widest uppercase btn-pixel disabled:opacity-30 hover:border-vice-pink hover:text-vice-pink transition-colors"
-          >
-            FOLD
-          </button>
+          {/* 2×2 action grid */}
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              onClick={() => sendAction('call')}
+              disabled={!isMyTurn}
+              className="bg-vice-cyan text-vice-bg text-xs py-3 min-h-[44px] font-bold tracking-widest uppercase btn-pixel disabled:opacity-30 hover:brightness-110 truncate px-1"
+            >
+              {currentBet - player.lastBet === 0 ? 'CHECK' : `CALL $${currentBet - player.lastBet}`}
+            </button>
+            <button
+              onClick={() => sendAction('fold')}
+              disabled={!isMyTurn}
+              className="bg-vice-surface border border-vice-muted/50 text-vice-muted text-xs py-3 min-h-[44px] font-bold tracking-widest uppercase btn-pixel disabled:opacity-30 hover:border-vice-pink hover:text-vice-pink transition-colors"
+            >
+              FOLD
+            </button>
+            <button
+              onClick={() => sendAction('raise')}
+              disabled={!isMyTurn}
+              className="bg-vice-pink text-white text-xs py-3 min-h-[44px] font-bold tracking-widest uppercase btn-pixel disabled:opacity-30 hover:brightness-110 truncate px-1"
+            >
+              RAISE ${bet}
+            </button>
+            <button
+              onClick={sendAllIn}
+              disabled={!isMyTurn || player.stack === 0}
+              className="bg-vice-gold text-vice-bg text-xs py-3 min-h-[44px] font-bold tracking-widest uppercase btn-pixel disabled:opacity-30 hover:brightness-110 truncate px-1"
+            >
+              ALL IN ${player.lastBet + player.stack}
+            </button>
+          </div>
         </div>
       )}
     </div>

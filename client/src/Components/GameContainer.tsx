@@ -47,10 +47,10 @@ function GameContainer({ onLeave }: { onLeave: () => void }) {
 
   return (
     <div className="flex flex-col justify-center my-4 text-center">
-      <div className="flex justify-end px-4 mb-2">
+      <div className="flex justify-start px-4 mb-2">
         <button
           onClick={onLeave}
-          className="text-vice-muted/50 text-xs tracking-widest uppercase hover:text-vice-pink transition-colors"
+          className="text-vice-muted text-xs tracking-widest uppercase hover:text-vice-pink transition-colors"
         >
           ← LEAVE GAME
         </button>
@@ -76,7 +76,7 @@ function GameContainer({ onLeave }: { onLeave: () => void }) {
                 min={1}
                 value={pendingSmallBlind}
                 onChange={(e) => setPendingSmallBlind(Number.parseInt(e.target.value, 10))}
-                className="w-16 bg-vice-bg border border-vice-muted/30 text-center text-sm focus:outline-none focus:border-vice-gold px-1 py-1 transition-colors"
+                className="w-14 sm:w-16 bg-vice-bg border border-vice-muted/30 text-center text-base focus:outline-none focus:border-vice-gold px-1 py-1 transition-colors"
               />
             </div>
             <div className="flex items-center gap-1">
@@ -86,7 +86,7 @@ function GameContainer({ onLeave }: { onLeave: () => void }) {
                 min={2}
                 value={pendingBigBlind}
                 onChange={(e) => setPendingBigBlind(Number.parseInt(e.target.value, 10))}
-                className="w-16 bg-vice-bg border border-vice-muted/30 text-center text-sm focus:outline-none focus:border-vice-gold px-1 py-1 transition-colors"
+                className="w-14 sm:w-16 bg-vice-bg border border-vice-muted/30 text-center text-base focus:outline-none focus:border-vice-gold px-1 py-1 transition-colors"
               />
             </div>
             <button
@@ -115,7 +115,7 @@ function GameContainer({ onLeave }: { onLeave: () => void }) {
           </p>
         )}
 
-        <div className="flex flex-row justify-around items-start my-4 flex-wrap gap-4 px-4">
+        <div className="flex flex-row justify-center items-start my-4 flex-wrap gap-4 px-2 sm:px-4">
           {game.players.map((player, index) => player.hasLeft ? null : (
             <Player
               key={player.id}
@@ -131,6 +131,7 @@ function GameContainer({ onLeave }: { onLeave: () => void }) {
               numPlayers={game.players.length}
               isMe={myPlayerIndex === index}
               timerDeadline={game.timerDeadline ?? null}
+              bigBlind={game.bigBlind}
             />
           ))}
         </div>

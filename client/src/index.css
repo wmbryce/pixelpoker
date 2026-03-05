@@ -45,10 +45,56 @@ body::after {
 .btn-pixel {
   box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.65);
   transition: transform 0.05s ease, box-shadow 0.05s ease;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 .btn-pixel:not(:disabled):active {
   transform: translate(4px, 4px);
   box-shadow: none;
+}
+
+/* ── Prevent iOS Safari input zoom (requires font-size ≥ 16px) ── */
+input, textarea {
+  font-size: max(16px, 1rem);
+}
+
+/* ── Bet slider ── */
+.bet-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 6px;
+  border-radius: 0;
+  outline: none;
+  cursor: pointer;
+}
+.bet-slider:disabled {
+  cursor: not-allowed;
+}
+.bet-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  background: #FFB800;
+  border: 2px solid #0A0E1A;
+  border-radius: 0;
+  cursor: pointer;
+  box-shadow: 2px 2px 0 rgba(0,0,0,0.6);
+}
+.bet-slider::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  background: #FFB800;
+  border: 2px solid #0A0E1A;
+  border-radius: 0;
+  cursor: pointer;
+  box-shadow: 2px 2px 0 rgba(0,0,0,0.6);
+}
+.bet-slider:not(:disabled)::-webkit-slider-thumb:hover {
+  background: #ffc933;
+}
+.bet-slider:not(:disabled)::-moz-range-thumb:hover {
+  background: #ffc933;
 }
 
 /* ── Table felt texture ── */

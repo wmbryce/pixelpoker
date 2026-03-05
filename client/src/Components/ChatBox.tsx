@@ -1,26 +1,35 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import socket from '../socket';
 import type { ChatMessage } from '@pixelpoker/shared';
 
 interface Props {
   username: string;
   room: string;
+  onNewMessage?: () => void;
 }
 
-function ChatBox({ username, room }: Props) {
+function ChatBox({ username, room, onNewMessage }: Props) {
   const [text, setText] = useState('');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const onNewMessageRef = useRef(onNewMessage);
+  onNewMessageRef.current = onNewMessage;
+
+  // Stable callback so the socket listener doesn't need to re-register on every render
+  const stableOnNewMessage = useCallback(() => {
+    onNewMessageRef.current?.();
+  }, []);
 
   useEffect(() => {
     const handleMessage = (data: ChatMessage) => {
       setMessages((prev) => [...prev, data]);
+      stableOnNewMessage();
     };
     socket.on('message', handleMessage);
     return () => {
       socket.off('message', handleMessage);
     };
-  }, []);
+  }, [stableOnNewMessage]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });

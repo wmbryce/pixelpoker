@@ -16,7 +16,7 @@ function Card({ card, highlighted }: Props) {
   if (!card) {
     return (
       <div
-        className="w-14 h-20 mx-1 border-2 border-vice-violet animate-card-deal"
+        className="w-11 h-16 mx-0.5 sm:w-14 sm:h-20 sm:mx-1 border-2 border-vice-violet animate-card-deal"
         style={{
           backgroundImage:
             'repeating-linear-gradient(45deg, #7B2FBE 0, #7B2FBE 4px, #0D2137 4px, #0D2137 11px)',
@@ -35,7 +35,7 @@ function Card({ card, highlighted }: Props) {
 
   return (
     <div
-      className={`w-14 h-20 mx-1 border-2 relative flex flex-col animate-card-deal transition-all duration-300 ${
+      className={`w-11 h-16 mx-0.5 sm:w-14 sm:h-20 sm:mx-1 border-2 relative flex flex-col animate-card-deal transition-all duration-300 ${
         dimmed  ? 'opacity-30 border-gray-900' :
         glowing ? 'border-vice-gold'           : 'border-gray-900'
       }`}
@@ -49,7 +49,7 @@ function Card({ card, highlighted }: Props) {
       {/* Top-left pip */}
       <div
         className="absolute top-1 left-1 leading-none flex flex-col items-center"
-        style={{ color, fontSize: '9px', lineHeight: 1.3 }}
+        style={{ color, fontSize: 'clamp(7px, 2vw, 9px)', lineHeight: 1.3 }}
       >
         <span style={{ fontWeight: 700 }}>{card.label}</span>
         <span>{suit}</span>
@@ -58,7 +58,7 @@ function Card({ card, highlighted }: Props) {
       {/* Centre suit */}
       <div
         className="flex-1 flex items-center justify-center"
-        style={{ color, fontSize: '26px', lineHeight: 1 }}
+        style={{ color, fontSize: 'clamp(16px, 5vw, 26px)', lineHeight: 1 }}
       >
         {suit}
       </div>
@@ -66,7 +66,7 @@ function Card({ card, highlighted }: Props) {
       {/* Bottom-right pip (rotated) */}
       <div
         className="absolute bottom-1 right-1 leading-none flex flex-col items-center rotate-180"
-        style={{ color, fontSize: '9px', lineHeight: 1.3 }}
+        style={{ color, fontSize: 'clamp(7px, 2vw, 9px)', lineHeight: 1.3 }}
       >
         <span style={{ fontWeight: 700 }}>{card.label}</span>
         <span>{suit}</span>

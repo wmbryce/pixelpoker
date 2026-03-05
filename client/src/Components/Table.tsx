@@ -12,12 +12,12 @@ interface Props {
 
 function Table({ tableCards, pot, currentBet, winnerCards, smallBlind, bigBlind }: Props) {
   return (
-    <div className="mx-16 mb-5">
+    <div className="mx-3 mb-4 sm:mx-16 sm:mb-5">
       <p className="text-xs font-bold mb-2 tracking-widest uppercase text-vice-muted/70">
         ◈ TABLE
       </p>
       <div
-        className="h-52 flex flex-col justify-center items-center border-2 border-vice-gold/30 p-4 gap-4 table-grid relative"
+        className="min-h-[140px] sm:h-52 flex flex-col justify-center items-center border-2 border-vice-gold/30 p-3 gap-3 sm:p-4 sm:gap-4 table-grid relative"
         style={{ boxShadow: '0 0 24px #FFB80015, inset 0 0 40px rgba(0,0,0,0.4)' }}
       >
         <Hand
@@ -26,7 +26,7 @@ function Table({ tableCards, pot, currentBet, winnerCards, smallBlind, bigBlind 
           winnerCardValues={winnerCards.length > 0 ? winnerCards : undefined}
         />
 
-        <div className="flex items-center gap-6">
+        <div className="flex items-center flex-wrap justify-center gap-3 sm:gap-6">
           <div className="flex flex-col items-center">
             <span className="text-xs text-vice-muted/70 tracking-widest uppercase">Pot</span>
             <span
