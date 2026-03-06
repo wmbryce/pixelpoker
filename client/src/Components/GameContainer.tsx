@@ -62,6 +62,9 @@ function GameContainer({ onLeave }: { onLeave: () => void }) {
         winnerCards={game.winnerCards}
         smallBlind={game.smallBlind}
         bigBlind={game.bigBlind}
+        players={game.players}
+        stage={game.stage}
+        winner={game.winner}
       />
 
       <div>

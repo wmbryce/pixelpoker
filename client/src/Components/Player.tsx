@@ -160,7 +160,8 @@ function Player({
 
       {/* Stack */}
       <p
-        className="text-2xl font-bold tracking-wider w-full text-left"
+        key={isWinner ? 'win' : 'base'}
+        className={`text-2xl font-bold tracking-wider w-full text-left ${isWinner ? 'animate-card-deal' : ''}`}
         style={{ color: '#FFB800', textShadow: isMyTurn ? '0 0 8px #FFB80080' : 'none' }}
       >
         ${player.stack}
