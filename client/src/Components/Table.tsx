@@ -1,4 +1,4 @@
-import { Fragment, useRef } from 'react';
+import { Fragment, useRef, useEffect, useState } from 'react';
 import Hand from './Hand';
 import type { CardType, PlayerType } from '@pixelpoker/shared';
 
@@ -46,6 +46,7 @@ function Stat({ label, value, valueClass = '', valueStyle }: StatProps) {
 }
 
 const GOLD_STYLE: React.CSSProperties = { textShadow: '0 0 10px #FFB80080' };
+const AWARD_STYLE: React.CSSProperties = { textShadow: '0 0 20px #FFB800, 0 0 40px #FFB80080' };
 
 interface Props {
   tableCards: CardType[];
@@ -60,12 +61,29 @@ interface Props {
 }
 
 function Table({ tableCards, pot, currentBet, winnerCards, smallBlind, bigBlind, players, stage, winner }: Props) {
-  const lastPotRef = useRef(0);
-  if (pot > 0) lastPotRef.current = pot;
+  const [lastPot, setLastPot] = useState(0);
+  const prevPotRef = useRef(pot);
 
-  const isAwarded = winner.length > 0 && pot === 0 && lastPotRef.current > 0;
+  // Track the last non-zero pot value so we can display it after the pot is zeroed at showdown
+  useEffect(() => {
+    if (prevPotRef.current > 0 && pot === 0) {
+      setLastPot(prevPotRef.current);
+    }
+    prevPotRef.current = pot;
+  }, [pot]);
+
+  // Reset lastPot when a new hand starts (stage goes back to 0 or 1)
+  useEffect(() => {
+    if (stage <= 1) setLastPot(0);
+  }, [stage]);
+
+  const isAwarded = winner.length > 0 && pot === 0 && lastPot > 0;
+
   const sidePots = computeSidePots(players);
-  const showSidePots = sidePots.length > 1 && stage >= 1 && stage <= 4 && players.some((p) => p.isAllIn);
+  const hasSidePots = sidePots.length > 1 && players.some((p) => p.isAllIn);
+  // Show side pots during betting (stages 1-4) AND at showdown (stage 5) so the
+  // breakdown is visible even when the board runs out instantly after an all-in.
+  const showSidePots = hasSidePots && stage >= 1 && stage <= 5;
 
   return (
     <div className="mx-3 mb-4 sm:mx-16 sm:mb-5">
@@ -88,19 +106,19 @@ function Table({ tableCards, pot, currentBet, winnerCards, smallBlind, bigBlind,
               <Fragment key={i}>
                 {i > 0 && <Divider />}
                 <Stat
-                  label={potLabel(i, sidePots.length)}
+                  label={isAwarded ? 'Awarded' : potLabel(i, sidePots.length)}
                   value={`$${amount}`}
-                  valueClass="text-vice-gold text-2xl font-bold tracking-wider"
-                  valueStyle={GOLD_STYLE}
+                  valueClass={`text-vice-gold text-2xl font-bold tracking-wider ${isAwarded ? 'animate-pot-award' : ''}`}
+                  valueStyle={isAwarded ? AWARD_STYLE : GOLD_STYLE}
                 />
               </Fragment>
             ))
           ) : (
             <Stat
               label={isAwarded ? 'Awarded' : 'Pot'}
-              value={`$${isAwarded ? lastPotRef.current : pot}`}
+              value={`$${isAwarded ? lastPot : pot}`}
               valueClass={`text-vice-gold text-2xl font-bold tracking-wider ${isAwarded ? 'animate-pot-award' : ''}`}
-              valueStyle={GOLD_STYLE}
+              valueStyle={isAwarded ? AWARD_STYLE : GOLD_STYLE}
             />
           )}
 
