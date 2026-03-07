@@ -55,7 +55,7 @@ function App() {
     });
 
     socket.on('error', ({ message }) => {
-      if (message === 'SESSION_NOT_FOUND' || message === 'ROOM_NOT_FOUND') {
+      if (message === 'SESSION_NOT_FOUND' || message === 'ROOM_NOT_FOUND' || message === 'ROOM_FULL') {
         clearRoomFromUrl();
         setIsAttemptingRejoin(false);
         setUsername(null);

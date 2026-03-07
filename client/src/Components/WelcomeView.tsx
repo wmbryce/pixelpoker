@@ -5,9 +5,11 @@ import RoomCreatedScreen from './welcome/RoomCreatedScreen';
 import JoinCodeScreen from './welcome/JoinCodeScreen';
 import JoinNameScreen from './welcome/JoinNameScreen';
 import RoomNotFoundScreen from './welcome/RoomNotFoundScreen';
+import QuickPlayScreen from './welcome/QuickPlayScreen';
 import { getRoomFromUrl } from '../lib/clientSession';
+import { SERVER_URL } from '../config';
 
-type Step = 'home' | 'create' | 'create-confirm' | 'join-code' | 'join-name' | 'not-found';
+type Step = 'home' | 'create' | 'create-confirm' | 'join-code' | 'join-name' | 'not-found' | 'quick-play';
 
 interface Props {
   setupRoom: (userId: string, roomId: string, smallBlind?: number, bigBlind?: number, aiCount?: number) => void;
@@ -20,6 +22,7 @@ const STEP_TITLES: Record<Step, string> = {
   'join-code':      'JOIN ROOM',
   'join-name':      'JOIN ROOM',
   'not-found':      'ROOM NOT FOUND',
+  'quick-play':     'QUICK PLAY',
 };
 
 function WelcomeView({ setupRoom }: Props) {
@@ -61,6 +64,18 @@ function WelcomeView({ setupRoom }: Props) {
     setupRoom(playerName, pendingCode);
   };
 
+  const handleQuickPlay = async (playerName: string) => {
+    try {
+      const res = await fetch(`${SERVER_URL}/rooms-quick`);
+      const { room } = await res.json();
+      setupRoom(playerName, room);
+    } catch {
+      // If the fetch fails, fall back to creating a new quick room locally
+      const code = 'QUICK-' + Math.floor(1000 + Math.random() * 9000);
+      setupRoom(playerName, code);
+    }
+  };
+
   const renderContent = () => {
     switch (step) {
       case 'home':
@@ -68,6 +83,7 @@ function WelcomeView({ setupRoom }: Props) {
           <HomeScreen
             onCreate={() => setStep('create')}
             onJoin={() => setStep('join-code')}
+            onQuickPlay={() => setStep('quick-play')}
           />
         );
       case 'create':
@@ -106,6 +122,13 @@ function WelcomeView({ setupRoom }: Props) {
             roomCode={pendingCode}
             onTryAgain={() => setStep('join-code')}
             onCreate={() => setStep('create')}
+          />
+        );
+      case 'quick-play':
+        return (
+          <QuickPlayScreen
+            onJoin={handleQuickPlay}
+            onBack={() => setStep('home')}
           />
         );
     }

@@ -21,6 +21,10 @@ const IS_PROD = process.env.NODE_ENV === 'production';
 const TURN_DURATION_MS = 30_000;
 const AUTO_DEAL_DELAY_MS = 4_000;
 const MAX_AI_PLAYERS = 5;
+const MAX_PLAYERS = 6;
+
+// Tracks rooms created via quick-play so they can be matched into
+const publicRooms = new Set<string>();
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Express + Socket.IO setup
@@ -43,6 +47,34 @@ app.get('/health', (_req, res) => {
 // Room existence check
 app.get('/rooms/:code', (req, res) => {
   res.json({ exists: rooms.has(req.params.code) });
+});
+
+// Quick-play: find a joinable public room or create a new one
+app.get('/rooms-quick', (_req, res) => {
+  let bestRoom: string | null = null;
+  let bestCount = 0;
+
+  for (const code of publicRooms) {
+    const game = rooms.get(code);
+    if (!game) {
+      publicRooms.delete(code);
+      continue;
+    }
+    const activePlayers = game.players.filter((p) => p.isActive || p.stack > 0).length;
+    if (activePlayers < MAX_PLAYERS && activePlayers > bestCount) {
+      bestRoom = code;
+      bestCount = activePlayers;
+    }
+  }
+
+  if (!bestRoom) {
+    const code = 'QUICK-' + Math.floor(1000 + Math.random() * 9000);
+    rooms.set(code, initializeGame());
+    publicRooms.add(code);
+    bestRoom = code;
+  }
+
+  res.json({ room: bestRoom });
 });
 
 // In production the Express server also serves the built React client
@@ -390,6 +422,10 @@ io.on('connection', (socket) => {
     }
 
     const game = rooms.get(room)!;
+    if (game.players.length >= MAX_PLAYERS) {
+      socket.emit('error', { message: 'ROOM_FULL' });
+      return;
+    }
     const playerIndex = game.players.length;
     game.players.push(createPlayer(clientId, username));
 
