@@ -3,6 +3,7 @@
 /tmp
 /out-tsc
 server/dist/
+client/dist/
 
 # Runtime data
 pids
