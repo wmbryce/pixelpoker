@@ -24,6 +24,8 @@ interface Props {
   isMe: boolean;
   timerDeadline: number | null;
   bigBlind: number;
+  isFolding?: boolean;
+  isRevealing?: boolean;
 }
 
 const TURN_SECONDS = 30;
@@ -61,6 +63,8 @@ function Player({
   isMe,
   timerDeadline,
   bigBlind,
+  isFolding = false,
+  isRevealing = false,
 }: Props) {
   const [bet, setBet] = useState(20);
   const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
@@ -192,6 +196,7 @@ function Player({
         hand={displayCards}
         active={handActive}
         winnerCardValues={isWinner && winnerCards.length > 0 ? winnerCards : undefined}
+        animationType={isFolding ? 'fold-toss' : isRevealing ? 'flip' : undefined}
       />
 
       {/* Turn timer */}

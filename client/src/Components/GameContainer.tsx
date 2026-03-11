@@ -2,12 +2,19 @@ import { useState, useEffect } from 'react';
 import Table from './Table';
 import Player from './Player';
 import { useGameStore } from '../store/gameStore';
+import { useSoundStore } from '../store/soundStore';
+import { useGameSounds } from '../hooks/useGameSounds';
+import { useGameAnimations } from '../hooks/useGameAnimations';
 import socket from '../socket';
 import type { GameAction } from '@pixelpoker/shared';
 
 function GameContainer({ onLeave }: { onLeave: () => void }) {
   const game = useGameStore((state) => state.game);
   const myPlayerIndex = useGameStore((state) => state.myPlayerIndex);
+  const { isMuted, toggleMute } = useSoundStore();
+
+  useGameSounds(game, myPlayerIndex);
+  const animations = useGameAnimations(game);
 
   const [pendingSmallBlind, setPendingSmallBlind] = useState(10);
   const [pendingBigBlind, setPendingBigBlind] = useState(20);
@@ -47,12 +54,19 @@ function GameContainer({ onLeave }: { onLeave: () => void }) {
 
   return (
     <div className="flex flex-col justify-center my-4 text-center">
-      <div className="flex justify-start px-4 mb-2">
+      <div className="flex justify-between px-4 mb-2">
         <button
           onClick={onLeave}
           className="text-vice-muted text-xs tracking-widest uppercase hover:text-vice-pink transition-colors"
         >
           ← LEAVE GAME
+        </button>
+        <button
+          onClick={toggleMute}
+          className="text-vice-muted text-sm hover:text-vice-gold transition-colors"
+          title={isMuted ? 'Unmute' : 'Mute'}
+        >
+          {isMuted ? '🔇' : '🔊'}
         </button>
       </div>
       <Table
@@ -65,6 +79,8 @@ function GameContainer({ onLeave }: { onLeave: () => void }) {
         players={game.players}
         stage={game.stage}
         winner={game.winner}
+        newCommunityCards={animations.newCommunityCards}
+        communityStaggerMs={animations.communityStaggerMs}
       />
 
       <div>
@@ -135,6 +151,8 @@ function GameContainer({ onLeave }: { onLeave: () => void }) {
               isMe={myPlayerIndex === index}
               timerDeadline={game.timerDeadline ?? null}
               bigBlind={game.bigBlind}
+              isFolding={animations.foldingPlayers.has(index)}
+              isRevealing={animations.revealingPlayers.has(index)}
             />
           ))}
         </div>

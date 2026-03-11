@@ -1,5 +1,5 @@
 import { Fragment, useRef, useEffect, useState } from 'react';
-import Hand from './Hand';
+import Card from './Card';
 import type { CardType, PlayerType } from '@pixelpoker/shared';
 
 function computeSidePots(players: PlayerType[]): number[] {
@@ -58,9 +58,11 @@ interface Props {
   players: PlayerType[];
   stage: number;
   winner: number[];
+  newCommunityCards?: number;
+  communityStaggerMs?: number;
 }
 
-function Table({ tableCards, pot, currentBet, winnerCards, smallBlind, bigBlind, players, stage, winner }: Props) {
+function Table({ tableCards, pot, currentBet, winnerCards, smallBlind, bigBlind, players, stage, winner, newCommunityCards = 0, communityStaggerMs = 0 }: Props) {
   const [lastPot, setLastPot] = useState(0);
   const prevPotRef = useRef(pot);
 
@@ -94,11 +96,24 @@ function Table({ tableCards, pot, currentBet, winnerCards, smallBlind, bigBlind,
         className="min-h-[140px] sm:h-52 flex flex-col justify-center items-center border-2 border-vice-gold/30 p-3 gap-3 sm:p-4 sm:gap-4 table-grid relative"
         style={{ boxShadow: '0 0 24px #FFB80015, inset 0 0 40px rgba(0,0,0,0.4)' }}
       >
-        <Hand
-          hand={tableCards}
-          active={true}
-          winnerCardValues={winnerCards.length > 0 ? winnerCards : undefined}
-        />
+        <div className="flex flex-row items-center justify-center">
+          {tableCards.map((card, i) => {
+            const isNew = newCommunityCards > 0 && i >= tableCards.length - newCommunityCards;
+            const staggerIndex = isNew ? i - (tableCards.length - newCommunityCards) : 0;
+            const highlighted = winnerCards.length > 0
+              ? winnerCards.includes(card.value)
+              : undefined;
+            return (
+              <Card
+                key={i}
+                card={card}
+                highlighted={highlighted}
+                animationType={isNew ? 'deal' : 'none'}
+                animationDelay={isNew ? staggerIndex * communityStaggerMs : 0}
+              />
+            );
+          })}
+        </div>
 
         <div className="flex items-center flex-wrap justify-center gap-3 sm:gap-6">
           {showSidePots ? (

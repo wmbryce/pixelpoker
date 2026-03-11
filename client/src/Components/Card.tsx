@@ -3,6 +3,8 @@ import type { CardType } from '@pixelpoker/shared';
 interface Props {
   card: CardType | null;
   highlighted?: boolean; // true = winning card, false = non-winning, undefined = neutral
+  animationDelay?: number; // stagger delay in ms
+  animationType?: 'deal' | 'flip' | 'fold-toss' | 'none';
 }
 
 const SUITE_ICONS: Record<string, string> = {
@@ -12,18 +14,32 @@ const SUITE_ICONS: Record<string, string> = {
   d: '♦',
 };
 
-function Card({ card, highlighted }: Props) {
+const CARD_SIZE = 'w-11 h-16 mx-0.5 sm:w-14 sm:h-20 sm:mx-1';
+
+function CardBack({ animationDelay, animationType }: Pick<Props, 'animationDelay' | 'animationType'>) {
+  const anim =
+    animationType === 'fold-toss' ? 'animate-card-fold-toss' :
+    animationType === 'none' ? '' :
+    'animate-card-deal';
+
+  return (
+    <div
+      className={`${CARD_SIZE} border-2 border-vice-violet ${anim}`}
+      style={{
+        backgroundImage:
+          'repeating-linear-gradient(45deg, #7B2FBE 0, #7B2FBE 4px, #0D2137 4px, #0D2137 11px)',
+        boxShadow: '3px 3px 0 rgba(0,0,0,0.70)',
+        animationDelay: animationDelay ? `${animationDelay}ms` : undefined,
+        opacity: anim && anim !== 'animate-card-fold-toss' ? 0 : undefined,
+        animationFillMode: 'forwards',
+      }}
+    />
+  );
+}
+
+function Card({ card, highlighted, animationDelay = 0, animationType = 'deal' }: Props) {
   if (!card) {
-    return (
-      <div
-        className="w-11 h-16 mx-0.5 sm:w-14 sm:h-20 sm:mx-1 border-2 border-vice-violet animate-card-deal"
-        style={{
-          backgroundImage:
-            'repeating-linear-gradient(45deg, #7B2FBE 0, #7B2FBE 4px, #0D2137 4px, #0D2137 11px)',
-          boxShadow: '3px 3px 0 rgba(0,0,0,0.70)',
-        }}
-      />
-    );
+    return <CardBack animationDelay={animationDelay} animationType={animationType} />;
   }
 
   const isRed = card.suite === 'h' || card.suite === 'd';
@@ -33,9 +49,15 @@ function Card({ card, highlighted }: Props) {
   const dimmed = highlighted === false;
   const glowing = highlighted === true;
 
+  const anim =
+    animationType === 'flip' ? 'animate-card-flip' :
+    animationType === 'fold-toss' ? 'animate-card-fold-toss' :
+    animationType === 'none' ? '' :
+    'animate-card-deal';
+
   return (
     <div
-      className={`w-11 h-16 mx-0.5 sm:w-14 sm:h-20 sm:mx-1 border-2 relative flex flex-col animate-card-deal transition-all duration-300 ${
+      className={`${CARD_SIZE} border-2 relative flex flex-col transition-all duration-300 ${anim} ${
         dimmed  ? 'opacity-30 border-gray-900' :
         glowing ? 'border-vice-gold'           : 'border-gray-900'
       }`}
@@ -44,6 +66,9 @@ function Card({ card, highlighted }: Props) {
         boxShadow: glowing
           ? '3px 3px 0 rgba(0,0,0,0.70), 0 0 10px #FFB80080, 0 0 0 1px #FFB800'
           : '3px 3px 0 rgba(0,0,0,0.70)',
+        animationDelay: animationDelay ? `${animationDelay}ms` : undefined,
+        opacity: anim && anim !== 'animate-card-fold-toss' ? 0 : undefined,
+        animationFillMode: 'forwards',
       }}
     >
       {/* Top-left pip */}

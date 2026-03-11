@@ -56,6 +56,15 @@ export default {
           '80%':  { opacity: '1', transform: 'scale(1)',   color: '#FFB800', textShadow: '0 0 12px #FFB80060' },
           '100%': { opacity: '0', transform: 'scale(0.9)' },
         },
+        'card-flip': {
+          '0%':   { transform: 'rotateY(180deg) scale(0.9)', opacity: '0' },
+          '40%':  { transform: 'rotateY(90deg) scale(0.95)', opacity: '0.6' },
+          '100%': { transform: 'rotateY(0deg) scale(1)',     opacity: '1' },
+        },
+        'card-fold-toss': {
+          '0%':   { transform: 'translateX(0) translateY(0) rotate(0deg)', opacity: '1' },
+          '100%': { transform: 'translateX(-60px) translateY(-30px) rotate(-12deg)', opacity: '0' },
+        },
       },
       animation: {
         'glow-pulse':   'glow-pulse 1.5s ease-in-out infinite',
@@ -63,7 +72,9 @@ export default {
         'winner-flash': 'winner-flash 0.55s ease-in-out infinite',
         'card-deal':    'card-deal 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards',
         'stack-win':    'stack-win 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards',
-        'pot-award':    'pot-award 2.5s ease-in-out forwards',
+        'pot-award':        'pot-award 2.5s ease-in-out forwards',
+        'card-flip':        'card-flip 0.5s ease-out forwards',
+        'card-fold-toss':   'card-fold-toss 0.3s ease-in forwards',
       },
     },
   },
