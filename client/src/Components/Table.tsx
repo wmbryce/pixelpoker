@@ -83,9 +83,9 @@ function Table({ tableCards, pot, currentBet, winnerCards, smallBlind, bigBlind,
 
   const sidePots = computeSidePots(players);
   const hasSidePots = sidePots.length > 1 && players.some((p) => p.isAllIn);
-  // Show side pots during betting (stages 1-4) AND at showdown (stage 5) so the
-  // breakdown is visible even when the board runs out instantly after an all-in.
-  const showSidePots = hasSidePots && stage >= 1 && stage <= 5;
+  // Only show the side-pot breakdown at showdown — during betting the contributions
+  // are still in flux (not everyone has acted) so the split is misleading.
+  const showSidePots = hasSidePots && stage === 5;
 
   return (
     <div className="mx-3 mb-4 sm:mx-16 sm:mb-5">

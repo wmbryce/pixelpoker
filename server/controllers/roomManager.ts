@@ -268,7 +268,7 @@ export const handleActionResult = (room: string, result: Poker) => {
   const activePlayers = result.players.filter((p) => p.isActive);
   const playersWhoCanAct = result.players.filter((p) => p.isActive && !p.isAllIn);
 
-  if (result.actionsRemaining <= 0 || playersWhoCanAct.length <= 1) {
+  if (result.actionsRemaining <= 0 || playersWhoCanAct.length === 0) {
     if (activePlayers.length <= 1) {
       // Everyone else folded — award pot directly (no pokersolver needed)
       const final = awardPotDirectly(result);
