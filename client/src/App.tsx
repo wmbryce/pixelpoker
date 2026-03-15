@@ -106,12 +106,12 @@ function App() {
   };
 
   return (
-    <div className="flex flex-col justify-between w-full my-4 min-h-screen bg-vice-bg text-white">
+    <div className="flex flex-col w-full min-h-screen bg-vice-bg text-white">
       {username && room ? (
-        <>
+        <div className="flex flex-col min-h-screen">
           <GameContainer onLeave={leaveRoom} />
           <ChatContainer />
-        </>
+        </div>
       ) : (
         <WelcomeView setupRoom={setupRoom} />
       )}

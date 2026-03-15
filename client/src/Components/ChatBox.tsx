@@ -43,7 +43,7 @@ function ChatBox({ username, room, onNewMessage }: Props) {
   };
 
   return (
-    <div className="w-11/12">
+    <div className="w-full">
       {/* Header */}
       <div className="flex items-center gap-2 mb-3 pb-2 border-b border-vice-violet/30">
         <span className="text-vice-gold text-xs tracking-widest uppercase font-bold">{username}</span>

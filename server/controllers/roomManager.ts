@@ -3,7 +3,7 @@ import chalk from 'chalk';
 import type { Poker, ServerToClientEvents, ClientToServerEvents, GameAction } from './types';
 import { advanceGameStage, awardPotDirectly } from './gameplay';
 import { raise, call, fold, nextPlayer } from './actions';
-import { makeAIDecision } from './ai';
+import { makeAIDecision, getAIChat, type AIChat } from './ai';
 
 const TURN_DURATION_MS = 30_000;
 const AUTO_DEAL_DELAY_MS = 4_000;
@@ -74,6 +74,26 @@ export const broadcastGame = (room: string) => {
 };
 
 // ──────────────────────────────────────────────────────────────────────────────
+// Chat broadcast
+// ──────────────────────────────────────────────────────────────────────────────
+
+export const broadcastChat = (room: string, chat: AIChat) => {
+  io.to(room).emit('message', {
+    userId: chat.playerId,
+    username: chat.playerName,
+    text: chat.text,
+  });
+};
+
+const sendAIChatIfAny = (room: string, game: Poker, playerIndex: number, trigger: Parameters<typeof getAIChat>[2]) => {
+  const chat = getAIChat(game, playerIndex, trigger);
+  if (chat) {
+    // Delay chat slightly so it feels more natural
+    setTimeout(() => broadcastChat(room, chat), 300 + Math.random() * 700);
+  }
+};
+
+// ──────────────────────────────────────────────────────────────────────────────
 // Turn timer
 // ──────────────────────────────────────────────────────────────────────────────
 
@@ -95,7 +115,7 @@ export const startTurnTimer = (room: string) => {
   }
 
   const playersWhoCanAct = game.players.filter((p) => p.isActive && !p.isAllIn).length;
-  if (playersWhoCanAct <= 1) {
+  if (playersWhoCanAct === 0) {
     game.timerDeadline = null;
     return;
   }
@@ -114,9 +134,12 @@ export const startTurnTimer = (room: string) => {
       if (!g || g.stage < 1 || g.stage > 4) return;
       if (!g.players[g.actionOn]?.isAI) return;
 
-      const action = makeAIDecision(g, g.actionOn);
+      const { action, chatTrigger } = makeAIDecision(g, g.actionOn);
       const actionResult = processGameAction(g, action);
       if (!actionResult) return;
+
+      // Send trash talk
+      sendAIChatIfAny(room, g, g.actionOn, chatTrigger);
 
       console.log(
         chalk.magenta(`  AI player ${g.actionOn} → ${action.type}${action.bet ? ` $${action.bet}` : ''} in "${room}"`),
@@ -252,6 +275,20 @@ export const processGameAction = (game: Poker, action: GameAction): Poker | null
   return result;
 };
 
+// Send win/lose trash talk from AI players after a hand concludes
+const sendHandResultChat = (room: string, game: Poker) => {
+  if (game.winner.length === 0) return;
+  for (let i = 0; i < game.players.length; i++) {
+    const p = game.players[i];
+    if (!p.isAI) continue;
+    if (game.winner.includes(i)) {
+      sendAIChatIfAny(room, game, i, 'onWin');
+    } else if (p.isActive) {
+      sendAIChatIfAny(room, game, i, 'onLose');
+    }
+  }
+};
+
 // After any betting action, decide whether to auto-advance the street or
 // start the next player's timer.
 export const handleActionResult = (room: string, result: Poker) => {
@@ -274,6 +311,7 @@ export const handleActionResult = (room: string, result: Poker) => {
       const final = awardPotDirectly(result);
       rooms.set(room, final);
       broadcastGame(room);
+      sendHandResultChat(room, final);
       scheduleAutoDeal(room);
     } else if (playersWhoCanAct.length <= 1) {
       // All remaining players are all-in — run out the board to showdown
@@ -283,6 +321,7 @@ export const handleActionResult = (room: string, result: Poker) => {
       }
       rooms.set(room, current);
       broadcastGame(room);
+      sendHandResultChat(room, current);
       scheduleAutoDeal(room);
     } else {
       // Advance to next street (or showdown)
@@ -290,6 +329,7 @@ export const handleActionResult = (room: string, result: Poker) => {
       rooms.set(room, advanced);
       if (advanced.stage === 5) {
         broadcastGame(room);
+        sendHandResultChat(room, advanced);
         scheduleAutoDeal(room);
       } else {
         startTurnTimer(room);

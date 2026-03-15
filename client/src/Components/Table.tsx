@@ -60,9 +60,12 @@ interface Props {
   winner: number[];
   newCommunityCards?: number;
   communityStaggerMs?: number;
+  stageLabel?: string;
+  onDeal?: () => void;
+  blindControls?: React.ReactNode;
 }
 
-function Table({ tableCards, pot, currentBet, winnerCards, smallBlind, bigBlind, players, stage, winner, newCommunityCards = 0, communityStaggerMs = 0 }: Props) {
+function Table({ tableCards, pot, currentBet, winnerCards, smallBlind, bigBlind, players, stage, winner, newCommunityCards = 0, communityStaggerMs = 0, stageLabel, onDeal, blindControls }: Props) {
   const [lastPot, setLastPot] = useState(0);
   const prevPotRef = useRef(pot);
 
@@ -88,14 +91,18 @@ function Table({ tableCards, pot, currentBet, winnerCards, smallBlind, bigBlind,
   const showSidePots = hasSidePots && stage === 5;
 
   return (
-    <div className="mx-3 mb-4 sm:mx-16 sm:mb-5">
-      <p className="text-xs font-bold mb-2 tracking-widest uppercase text-vice-muted/70">
-        ◈ TABLE
-      </p>
+    <div>
       <div
-        className="min-h-[140px] sm:h-52 flex flex-col justify-center items-center border-2 border-vice-gold/30 p-3 gap-3 sm:p-4 sm:gap-4 table-grid relative"
+        className="table-felt min-h-[120px] sm:min-h-[180px] flex flex-col justify-center items-center border-2 border-vice-gold/30 p-4 gap-3 sm:p-6 sm:gap-4 table-grid relative"
         style={{ boxShadow: '0 0 24px #FFB80015, inset 0 0 40px rgba(0,0,0,0.4)' }}
       >
+        {/* Stage label */}
+        {stageLabel && (
+          <p className="text-vice-muted/60 text-xs tracking-widest uppercase">
+            {stageLabel} BETTING
+          </p>
+        )}
+
         <div className="flex flex-row items-center justify-center">
           {tableCards.map((card, i) => {
             const isNew = newCommunityCards > 0 && i >= tableCards.length - newCommunityCards;
@@ -150,6 +157,17 @@ function Table({ tableCards, pot, currentBet, winnerCards, smallBlind, bigBlind,
             valueClass="text-vice-muted text-lg font-semibold tracking-wider"
           />
         </div>
+
+        {/* Deal button & blind controls rendered inside the table */}
+        {blindControls}
+        {onDeal && (
+          <button
+            className="bg-vice-violet text-white px-8 py-3 font-bold tracking-widest uppercase text-sm btn-pixel hover:brightness-110 transition-all z-10"
+            onClick={onDeal}
+          >
+            ▶ DEAL
+          </button>
+        )}
       </div>
     </div>
   );

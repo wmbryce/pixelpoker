@@ -107,3 +107,8 @@ input, textarea {
   );
   background-size: 12px 12px;
 }
+
+/* ── Stadium / racetrack table shape ── */
+.table-felt {
+  border-radius: 9999px;
+}

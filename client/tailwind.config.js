@@ -65,6 +65,12 @@ export default {
           '0%':   { transform: 'translateX(0) translateY(0) rotate(0deg)', opacity: '1' },
           '100%': { transform: 'translateX(-60px) translateY(-30px) rotate(-12deg)', opacity: '0' },
         },
+        'chat-bubble': {
+          '0%':   { opacity: '0', transform: 'translateX(-50%) translateY(4px)' },
+          '10%':  { opacity: '1', transform: 'translateX(-50%) translateY(0)' },
+          '80%':  { opacity: '1', transform: 'translateX(-50%) translateY(0)' },
+          '100%': { opacity: '0', transform: 'translateX(-50%) translateY(-4px)' },
+        },
       },
       animation: {
         'glow-pulse':   'glow-pulse 1.5s ease-in-out infinite',
@@ -75,6 +81,7 @@ export default {
         'pot-award':        'pot-award 2.5s ease-in-out forwards',
         'card-flip':        'card-flip 0.5s ease-out forwards',
         'card-fold-toss':   'card-fold-toss 0.3s ease-in forwards',
+        'chat-bubble':      'chat-bubble 4s ease-in-out forwards',
       },
     },
   },
