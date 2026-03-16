@@ -150,54 +150,77 @@ function Player({
             : undefined
         }
       >
-        {/* Name row */}
-        <div className="flex items-center gap-1.5 w-full justify-between">
-          <span className={`font-bold text-white tracking-wide uppercase truncate ${compact ? 'text-xs' : 'text-sm'}`}>
-            {player.name}
-            {isMe && <span className="ml-1 text-vice-gold text-xs">(you)</span>}
-          </span>
-          <div className="flex items-center gap-1 shrink-0">
-            {player.isAI && (
-              <span className="text-xs px-1 py-0.5 font-bold tracking-wider bg-vice-violet/60 text-vice-cyan border border-vice-cyan/40" style={{ fontSize: '0.6rem' }}>
-                BOT
+        {isWinner ? (
+          <>
+            {/* Winner info replaces name/stack area */}
+            <span className={`font-bold tracking-widest uppercase animate-winner-flash ${compact ? 'text-xs' : 'text-sm'}`}>
+              ★ {player.name} ★
+            </span>
+            {winnerHandName && (
+              <span className="text-vice-gold/80 tracking-widest uppercase" style={{ fontSize: '0.6rem' }}>
+                {winnerHandName}
               </span>
             )}
-            {label && (
-              <span className={`px-1 py-0.5 font-bold tracking-wider ${LABEL_COLORS[label] ?? ''}`} style={{ fontSize: '0.6rem' }}>
-                {label}
+            <p
+              key="win"
+              className={`font-bold tracking-wider w-full text-center animate-stack-win ${compact ? 'text-lg' : 'text-2xl'}`}
+              style={{ color: '#FFB800' }}
+            >
+              ${player.stack}
+            </p>
+          </>
+        ) : (
+          <>
+            {/* Name row */}
+            <div className="flex items-center gap-1.5 w-full justify-between">
+              <span className={`font-bold text-white tracking-wide uppercase truncate ${compact ? 'text-xs' : 'text-sm'}`}>
+                {player.name}
+                {isMe && <span className="ml-1 text-vice-gold text-xs">(you)</span>}
               </span>
+              <div className="flex items-center gap-1 shrink-0">
+                {player.isAI && (
+                  <span className="text-xs px-1 py-0.5 font-bold tracking-wider bg-vice-violet/60 text-vice-cyan border border-vice-cyan/40" style={{ fontSize: '0.6rem' }}>
+                    BOT
+                  </span>
+                )}
+                {label && (
+                  <span className={`px-1 py-0.5 font-bold tracking-wider ${LABEL_COLORS[label] ?? ''}`} style={{ fontSize: '0.6rem' }}>
+                    {label}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Stack */}
+            <p
+              key="base"
+              className={`font-bold tracking-wider w-full text-left ${compact ? 'text-lg' : 'text-2xl'}`}
+              style={{ color: '#FFB800', textShadow: isMyTurn ? '0 0 8px #FFB80080' : 'none' }}
+            >
+              ${player.stack}
+            </p>
+
+            {/* All-in badge */}
+            {player.isAllIn && player.isActive && (
+              <p className="text-xs font-bold tracking-widest uppercase w-full text-left text-vice-gold animate-pulse" style={{ fontSize: '0.6rem' }}>
+                ALL IN
+              </p>
             )}
-          </div>
-        </div>
 
-        {/* Stack */}
-        <p
-          key={isWinner ? 'win' : 'base'}
-          className={`font-bold tracking-wider w-full text-left ${isWinner ? 'animate-stack-win' : ''} ${compact ? 'text-lg' : 'text-2xl'}`}
-          style={{ color: '#FFB800', textShadow: isMyTurn ? '0 0 8px #FFB80080' : 'none' }}
-        >
-          ${player.stack}
-        </p>
+            {/* Busted badge (for other players) */}
+            {isBusted && !isMe && (
+              <p className="text-xs font-bold tracking-widest uppercase w-full text-left text-vice-pink" style={{ fontSize: '0.6rem' }}>
+                BUSTED
+              </p>
+            )}
 
-        {/* All-in badge */}
-        {player.isAllIn && player.isActive && (
-          <p className="text-xs font-bold tracking-widest uppercase w-full text-left text-vice-gold animate-pulse" style={{ fontSize: '0.6rem' }}>
-            ALL IN
-          </p>
-        )}
-
-        {/* Busted badge (for other players) */}
-        {isBusted && !isMe && (
-          <p className="text-xs font-bold tracking-widest uppercase w-full text-left text-vice-pink" style={{ fontSize: '0.6rem' }}>
-            BUSTED
-          </p>
-        )}
-
-        {/* Last action — shown for other players when not actively their turn */}
-        {!isMe && player.lastAction && !isThisTurn && !player.isAllIn && (
-          <p className={`font-bold tracking-widest uppercase w-full text-left ${actionColor}`} style={{ fontSize: '0.6rem' }}>
-            {player.lastAction}
-          </p>
+            {/* Last action — shown for other players when not actively their turn */}
+            {!isMe && player.lastAction && !isThisTurn && !player.isAllIn && (
+              <p className={`font-bold tracking-widest uppercase w-full text-left ${actionColor}`} style={{ fontSize: '0.6rem' }}>
+                {player.lastAction}
+              </p>
+            )}
+          </>
         )}
 
         <Hand
@@ -224,18 +247,6 @@ function Player({
           </div>
         )}
 
-        {isWinner && (
-          <div className="flex flex-col items-center gap-0.5">
-            <span className={`font-bold tracking-widest uppercase animate-winner-flash ${compact ? 'text-xs' : 'text-sm'}`}>
-              ★ WINNER ★
-            </span>
-            {winnerHandName && (
-              <span className="text-vice-gold/80 tracking-widest uppercase" style={{ fontSize: '0.6rem' }}>
-                {winnerHandName}
-              </span>
-            )}
-          </div>
-        )}
       </div>
 
       {/* Action controls (only for me, always rendered below the card) */}
