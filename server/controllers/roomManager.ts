@@ -7,6 +7,10 @@ import { makeAIDecision, getAIChat, type AIChat } from './ai';
 
 const TURN_DURATION_MS = 30_000;
 const AUTO_DEAL_DELAY_MS = 4_000;
+const AI_MIN_DELAY_MS = 600;
+const AI_MAX_DELAY_MS = 2_000;
+const AI_CHAT_MIN_DELAY_MS = 300;
+const AI_CHAT_MAX_DELAY_MS = 1_000;
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Shared state
@@ -89,7 +93,7 @@ const sendAIChatIfAny = (room: string, game: Poker, playerIndex: number, trigger
   const chat = getAIChat(game, playerIndex, trigger);
   if (chat) {
     // Delay chat slightly so it feels more natural
-    setTimeout(() => broadcastChat(room, chat), 300 + Math.random() * 700);
+    setTimeout(() => broadcastChat(room, chat), AI_CHAT_MIN_DELAY_MS + Math.random() * (AI_CHAT_MAX_DELAY_MS - AI_CHAT_MIN_DELAY_MS));
   }
 };
 
@@ -125,7 +129,7 @@ export const startTurnTimer = (room: string) => {
   if (currentPlayer?.isAI) {
     // AI acts automatically after a short human-like delay (0.6–2s)
     game.timerDeadline = null;
-    const delay = 600 + Math.random() * 1400;
+    const delay = AI_MIN_DELAY_MS + Math.random() * (AI_MAX_DELAY_MS - AI_MIN_DELAY_MS);
 
     const t = setTimeout(() => {
       timers.delete(room);
@@ -289,56 +293,70 @@ const sendHandResultChat = (room: string, game: Poker) => {
   }
 };
 
+// ──────────────────────────────────────────────────────────────────────────────
+// Action result helpers
+// ──────────────────────────────────────────────────────────────────────────────
+
+/** Conclude a hand: store state, broadcast, send chat, and queue the next deal. */
+const concludeHand = (room: string, game: Poker) => {
+  rooms.set(room, game);
+  broadcastGame(room);
+  sendHandResultChat(room, game);
+  scheduleAutoDeal(room);
+};
+
+/** All remaining players are all-in — deal out the board to showdown. */
+const runOutBoard = (room: string, game: Poker) => {
+  let current = game;
+  while (current.stage >= 1 && current.stage < 5) {
+    current = advanceGameStage(current);
+  }
+  concludeHand(room, current);
+};
+
+/** Advance to next street; if that triggers showdown, conclude the hand. */
+const advanceStreet = (room: string, game: Poker) => {
+  const advanced = advanceGameStage(game);
+  if (advanced.stage === 5) {
+    concludeHand(room, advanced);
+  } else {
+    rooms.set(room, advanced);
+    startTurnTimer(room);
+    broadcastGame(room);
+  }
+};
+
+/** Continue play: store state, start the next player's timer, broadcast. */
+const continuePlay = (room: string, game: Poker) => {
+  rooms.set(room, game);
+  startTurnTimer(room);
+  broadcastGame(room);
+};
+
 // After any betting action, decide whether to auto-advance the street or
 // start the next player's timer.
 export const handleActionResult = (room: string, result: Poker) => {
   const inBettingRound = result.stage >= 1 && result.stage <= 4;
 
   if (!inBettingRound) {
-    // Stage 0 advance (deal pre-flop): just start timer & broadcast
-    rooms.set(room, result);
-    startTurnTimer(room);
-    broadcastGame(room);
+    continuePlay(room, result);
     return;
   }
 
   const activePlayers = result.players.filter((p) => p.isActive);
-  const playersWhoCanAct = result.players.filter((p) => p.isActive && !p.isAllIn);
+  const playersWhoCanAct = activePlayers.filter((p) => !p.isAllIn);
 
-  if (result.actionsRemaining <= 0 || playersWhoCanAct.length === 0) {
-    if (activePlayers.length <= 1) {
-      // Everyone else folded — award pot directly (no pokersolver needed)
-      const final = awardPotDirectly(result);
-      rooms.set(room, final);
-      broadcastGame(room);
-      sendHandResultChat(room, final);
-      scheduleAutoDeal(room);
-    } else if (playersWhoCanAct.length <= 1) {
-      // All remaining players are all-in — run out the board to showdown
-      let current = result;
-      while (current.stage >= 1 && current.stage < 5) {
-        current = advanceGameStage(current);
-      }
-      rooms.set(room, current);
-      broadcastGame(room);
-      sendHandResultChat(room, current);
-      scheduleAutoDeal(room);
-    } else {
-      // Advance to next street (or showdown)
-      const advanced = advanceGameStage(result);
-      rooms.set(room, advanced);
-      if (advanced.stage === 5) {
-        broadcastGame(room);
-        sendHandResultChat(room, advanced);
-        scheduleAutoDeal(room);
-      } else {
-        startTurnTimer(room);
-        broadcastGame(room);
-      }
-    }
+  if (result.actionsRemaining > 0 && playersWhoCanAct.length > 0) {
+    continuePlay(room, result);
+    return;
+  }
+
+  // Round is over — determine how to resolve
+  if (activePlayers.length <= 1) {
+    concludeHand(room, awardPotDirectly(result));
+  } else if (playersWhoCanAct.length <= 1) {
+    runOutBoard(room, result);
   } else {
-    rooms.set(room, result);
-    startTurnTimer(room);
-    broadcastGame(room);
+    advanceStreet(room, result);
   }
 };

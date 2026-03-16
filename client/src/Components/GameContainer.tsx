@@ -149,7 +149,7 @@ function GameContainer({ onLeave }: { onLeave: () => void }) {
                 numPlayers={game.players.length}
                 isMe={myPlayerIndex === originalIndex}
                 timerDeadline={game.timerDeadline ?? null}
-                bigBlind={game.bigBlind}
+                pot={game.pot}
                 isFolding={animations.foldingPlayers.has(originalIndex)}
                 isRevealing={animations.revealingPlayers.has(originalIndex)}
                 compact={!isBottom}

@@ -43,7 +43,7 @@ function ChatBox({ username, room, onNewMessage }: Props) {
   };
 
   return (
-    <div className="w-full">
+    <div className="w-full flex flex-col min-h-0">
       {/* Header */}
       <div className="flex items-center gap-2 mb-3 pb-2 border-b border-vice-violet/30">
         <span className="text-vice-gold text-xs tracking-widest uppercase font-bold">{username}</span>
@@ -52,7 +52,7 @@ function ChatBox({ username, room, onNewMessage }: Props) {
       </div>
 
       {/* Messages */}
-      <div className="flex flex-col gap-2 max-h-56 overflow-y-auto mb-4 pr-1">
+      <div className="flex flex-col gap-2 overflow-y-auto mb-4 pr-1 min-h-0 flex-1">
         {messages.map((msg, i) => {
           const isMine = msg.username === username;
           return (
@@ -73,11 +73,11 @@ function ChatBox({ username, room, onNewMessage }: Props) {
       </div>
 
       {/* Input row */}
-      <div className="flex gap-2">
+      <div className="flex gap-2 shrink-0">
         <div className="flex-1 flex items-center bg-vice-bg border border-vice-muted/50 focus-within:border-vice-gold transition-colors">
           <span className="pl-2 text-vice-gold text-sm select-none">▶</span>
           <input
-            className="flex-1 bg-transparent px-2 py-2 text-sm text-white placeholder-vice-muted/50 focus:outline-none uppercase tracking-wider"
+            className="flex-1 bg-transparent px-2 py-2 text-sm text-white placeholder-vice-muted/50 focus:outline-none tracking-wider"
             placeholder="TYPE MESSAGE…"
             value={text}
             onChange={(e) => setText(e.target.value)}

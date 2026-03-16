@@ -2,6 +2,7 @@
 export type {
   CardType,
   PlayerType,
+  PlayerAction,
   Poker,
   GameAction,
   ActionType,
@@ -9,4 +10,4 @@ export type {
   ServerToClientEvents,
   ClientToServerEvents,
 } from '@pixelpoker/shared';
-export { SMALL_BLIND, BIG_BLIND } from '@pixelpoker/shared';
+export { SMALL_BLIND, BIG_BLIND, computeSidePots } from '@pixelpoker/shared';

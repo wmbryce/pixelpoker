@@ -9,19 +9,45 @@ export interface CardType {
   label: string;
 }
 
+/** Actions that can appear in PlayerType.lastAction */
+export type PlayerAction = 'FOLD' | 'CHECK' | 'CALL' | 'ALL IN' | `RAISE $${number}`;
+
 export interface PlayerType {
   id: string;
   name: string;
+  /** Current chip stack */
   stack: number;
   cards: CardType[];
+  /** Total chips bet in the current street */
   lastBet: number;
   checked: boolean;
+  /** Still in the hand (not folded) */
   isActive: boolean;
   isAllIn: boolean;
-  contributed: number; // total chips put into the pot this hand (for side pot math)
+  /** Cumulative chips invested this hand (for side pot calculation) */
+  contributed: number;
   isAI?: boolean;
   hasLeft?: boolean;
-  lastAction: string | null;
+  lastAction: PlayerAction | null;
+}
+
+/** Side pot breakdown: amount eligible per pot tier */
+export function computeSidePots(players: PlayerType[]): number[] {
+  const active = players.filter((p) => p.contributed > 0);
+  if (active.length === 0) return [];
+
+  const levels = [...new Set(active.map((p) => p.contributed))].sort((a, b) => a - b);
+  const amounts: number[] = [];
+  let prev = 0;
+
+  for (const level of levels) {
+    const eligible = players.filter((p) => p.contributed >= level).length;
+    const amount = (level - prev) * eligible;
+    if (amount > 0) amounts.push(amount);
+    prev = level;
+  }
+
+  return amounts;
 }
 
 export interface Poker {

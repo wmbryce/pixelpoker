@@ -1,24 +1,7 @@
 import { Fragment, useRef, useEffect, useState } from 'react';
 import Card from './Card';
+import { computeSidePots } from '@pixelpoker/shared';
 import type { CardType, PlayerType } from '@pixelpoker/shared';
-
-function computeSidePots(players: PlayerType[]): number[] {
-  const active = players.filter((p) => p.contributed > 0);
-  if (active.length === 0) return [];
-
-  const levels = [...new Set(active.map((p) => p.contributed))].sort((a, b) => a - b);
-  const amounts: number[] = [];
-  let prev = 0;
-
-  for (const level of levels) {
-    const eligible = players.filter((p) => p.contributed >= level).length;
-    const amount = (level - prev) * eligible;
-    if (amount > 0) amounts.push(amount);
-    prev = level;
-  }
-
-  return amounts;
-}
 
 function potLabel(i: number, total: number): string {
   if (i === 0) return 'Main Pot';

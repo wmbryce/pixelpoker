@@ -18,10 +18,10 @@ function ChatContainer() {
     <div className="relative">
       {/* Chat popup — slides up from the bar */}
       <div
-        className={`absolute bottom-full left-0 right-0 mx-4 sm:mx-8 mb-1 bg-vice-surface border-2 border-vice-violet/40 z-40 ${isChatOpen ? '' : 'hidden'}`}
+        className={`absolute bottom-full left-0 right-0 mx-4 sm:mx-8 mb-1 bg-vice-surface border-2 border-vice-violet/40 z-40 overflow-hidden ${isChatOpen ? '' : 'hidden'}`}
         style={{ boxShadow: '4px 4px 0 rgba(0,0,0,0.5)', maxHeight: '300px' }}
       >
-        <div className="flex flex-col py-4 px-4">
+        <div className="flex flex-col py-4 px-4 h-full max-h-[296px]">
           <ChatBox
             username={username ?? ''}
             room={room ?? ''}

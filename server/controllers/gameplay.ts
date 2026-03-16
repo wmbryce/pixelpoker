@@ -24,9 +24,9 @@ export const createPlayer = (id: string, name: string): PlayerType => ({
   lastAction: null,
 });
 
-export const createAIPlayer = (seatIndex: number): PlayerType => ({
+export const createAIPlayer = (seatIndex: number, name?: string): PlayerType => ({
   id: `ai-${seatIndex}-${Date.now()}`,
-  name: `BOT ${seatIndex + 1}`,
+  name: name ?? `BOT ${seatIndex + 1}`,
   stack: 1000,
   cards: [],
   lastBet: 0,

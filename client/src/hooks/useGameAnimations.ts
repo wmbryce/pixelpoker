@@ -22,6 +22,22 @@ const INITIAL: AnimationState = {
 export function useGameAnimations(game: Poker | null): AnimationState {
   const prevRef = useRef<Poker | null>(null);
   const [state, setState] = useState<AnimationState>(INITIAL);
+  const timeoutIds = useRef<Set<ReturnType<typeof setTimeout>>>(new Set());
+
+  const safeTimeout = (fn: () => void, ms: number) => {
+    const id = setTimeout(() => {
+      timeoutIds.current.delete(id);
+      fn();
+    }, ms);
+    timeoutIds.current.add(id);
+  };
+
+  useEffect(() => {
+    return () => {
+      for (const id of timeoutIds.current) clearTimeout(id);
+      timeoutIds.current.clear();
+    };
+  }, []);
 
   useEffect(() => {
     if (!game) return;
@@ -43,7 +59,7 @@ export function useGameAnimations(game: Poker | null): AnimationState {
 
       // Clear after animations finish
       const totalDuration = added === 3 ? 600 + 400 : 600; // stagger + animation
-      setTimeout(() => {
+      safeTimeout(() => {
         setState((s) => ({ ...s, newCommunityCards: 0, communityStaggerMs: 0 }));
       }, totalDuration);
     }
@@ -60,7 +76,7 @@ export function useGameAnimations(game: Poker | null): AnimationState {
     }
     if (folding.size > 0) {
       updates.foldingPlayers = folding;
-      setTimeout(() => {
+      safeTimeout(() => {
         setState((s) => ({ ...s, foldingPlayers: new Set() }));
       }, 350);
     }
@@ -78,7 +94,7 @@ export function useGameAnimations(game: Poker | null): AnimationState {
     }
     if (revealing.size > 0) {
       updates.revealingPlayers = revealing;
-      setTimeout(() => {
+      safeTimeout(() => {
         setState((s) => ({ ...s, revealingPlayers: new Set() }));
       }, 600);
     }

@@ -3,6 +3,7 @@ import chalk from 'chalk';
 import type { ServerToClientEvents, ClientToServerEvents } from './types';
 import { SMALL_BLIND, BIG_BLIND } from './types';
 import { initializeGame, createPlayer, createAIPlayer } from './gameplay';
+import { assignPersona } from './ai';
 import { fold, nextPlayer } from './actions';
 import {
   rooms,
@@ -18,6 +19,10 @@ import {
 
 const MAX_AI_PLAYERS = 5;
 const MAX_PLAYERS = 6;
+const MAX_BLIND = 10_000;
+
+const actionTimestamps = new Map<string, number>();
+const ACTION_COOLDOWN_MS = 300;
 
 export function registerHandlers(io: Server<ClientToServerEvents, ServerToClientEvents>) {
   io.on('connection', (socket) => {
@@ -44,10 +49,17 @@ export function registerHandlers(io: Server<ClientToServerEvents, ServerToClient
       // Add AI players (only when the room is first created, i.e. this is player 0)
       if (playerIndex === 0 && aiCount && aiCount > 0) {
         const count = Math.min(aiCount, MAX_AI_PLAYERS);
+        const usedNames = new Set<string>();
         for (let i = 0; i < count; i++) {
-          game.players.push(createAIPlayer(game.players.length));
+          const aiPlayer = createAIPlayer(game.players.length);
+          const persona = assignPersona(aiPlayer.id, usedNames);
+          usedNames.add(persona.name);
+          aiPlayer.name = persona.name;
+          game.players.push(aiPlayer);
         }
-        console.log(chalk.magenta(`  added ${count} AI player(s) to room "${room}"`));
+        console.log(
+          chalk.magenta(`  added ${count} AI: ${game.players.filter((p) => p.isAI).map((p) => p.name).join(', ')} to "${room}"`),
+        );
       }
 
       socket.emit('roomJoined', { playerIndex, game });
@@ -95,6 +107,11 @@ export function registerHandlers(io: Server<ClientToServerEvents, ServerToClient
     });
 
     socket.on('gameAction', (action) => {
+      const now = Date.now();
+      const lastAction = actionTimestamps.get(socket.id) ?? 0;
+      if (now - lastAction < ACTION_COOLDOWN_MS) return;
+      actionTimestamps.set(socket.id, now);
+
       const session = sessions.get(socket.id);
       if (!session) return;
 
@@ -116,10 +133,12 @@ export function registerHandlers(io: Server<ClientToServerEvents, ServerToClient
 
       const game = rooms.get(session.room);
       if (!game || game.stage !== 0) return;
-      if (smallBlind <= 0 || bigBlind <= smallBlind) return;
+      const sb = Math.floor(smallBlind);
+      const bb = Math.floor(bigBlind);
+      if (sb <= 0 || bb <= sb || sb > MAX_BLIND || bb > MAX_BLIND) return;
 
-      game.smallBlind = smallBlind;
-      game.bigBlind = bigBlind;
+      game.smallBlind = sb;
+      game.bigBlind = bb;
       broadcastGame(session.room);
     });
 
@@ -176,6 +195,7 @@ export function registerHandlers(io: Server<ClientToServerEvents, ServerToClient
     });
 
     socket.on('disconnect', () => {
+      actionTimestamps.delete(socket.id);
       const session = sessions.get(socket.id);
       sessions.delete(socket.id);
       if (session) {
