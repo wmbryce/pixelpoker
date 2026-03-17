@@ -38,7 +38,15 @@ Client                              Server
                                      └─ scoring engine
 ```
 
-No changes to existing multiplayer code. The training controller is purely additive.
+### Prerequisite Refactoring (Minimal Changes to Existing Code)
+
+Before building the training system, a few small changes to existing code are needed:
+
+1. **Export `preFlopStrength()` and `postFlopStrength()`** from `server/controllers/ai.ts` — currently private functions, training needs them for debrief metrics.
+2. **Refactor `makeAIDecision()` to accept persona as a parameter** — currently reads from a module-level `personaMap` singleton. Training needs to pass persona data without polluting the multiplayer persona map. Alternatively, the training controller can maintain its own persona map instance.
+3. **Refactor `ActionControls.tsx` to accept an `onAction` callback prop** — currently hardcoded to `socket.emit('gameAction', ...)`. Training needs to route actions through training-specific socket events. The multiplayer flow passes `onAction` that calls the existing socket emit, keeping behavior unchanged.
+
+All other existing code remains untouched. The training controller is purely additive beyond these three changes.
 
 ---
 
@@ -110,6 +118,9 @@ interface Scenario {
   playerCards: [string, string]; // ["Qh", "Jh"]
   communityCards: string[];      // ["Kh", "9s", "4d", "2c", "8h"] — all 5
   playerPosition: Position;     // "BTN" | "CO" | "HJ" | "SB" | "BB"
+  playerStack: number;          // Starting stack for the player
+  smallBlind: number;           // Blind levels for this scenario
+  bigBlind: number;
   opponents: ScenarioOpponent[];
   optimalActions: {
     preflop: OptimalAction;
@@ -120,12 +131,12 @@ interface Scenario {
 }
 
 interface OptimalAction {
-  action: "fold" | "call" | "raise";
-  raiseAmount?: number;
+  action: "fold" | "check" | "call" | "raise";
+  raiseAmount?: number;         // Required if action is "raise"
   reasoning: string;            // Shown in debrief
   metrics: {
     equity: number;             // 0-1
-    potOdds: number;            // 0-1
+    potOdds: number;            // 0-1 (0 when checking)
     handStrength: number;       // 0-1
   };
 }
@@ -134,6 +145,7 @@ interface ScenarioOpponent {
   persona: string;              // "ALICE" | "VINNY" etc.
   cards: [string, string];
   stack: number;
+  position: Position;           // Where this opponent sits
 }
 
 type Position = "BTN" | "CO" | "HJ" | "SB" | "BB";
@@ -164,7 +176,7 @@ Prefixed with `training:` to stay separate from multiplayer events.
 ```typescript
 interface TrainingClientEvents {
   'training:start': (data: { lessonId: string }) => void;
-  'training:action': (data: { type: 'fold' | 'call' | 'raise'; bet?: number }) => void;
+  'training:action': (data: { type: 'fold' | 'check' | 'call' | 'raise'; bet?: number }) => void;
   'training:nextHand': () => void;
   'training:exit': () => void;
 }
@@ -201,6 +213,49 @@ interface TrainingServerEvents {
 }
 ```
 
+### Supporting Types
+
+```typescript
+interface OpponentState {
+  persona: string;
+  position: Position;
+  stack: number;
+  lastAction: string | null;    // "FOLD" | "CHECK" | "CALL" | "RAISE $X" | "ALL IN"
+  isActive: boolean;
+  isAllIn: boolean;
+}
+
+interface StreetResult {
+  street: 'preflop' | 'flop' | 'turn' | 'river';
+  userAction: OptimalAction['action'] | null;  // null if street not reached
+  optimalAction: OptimalAction;
+  correct: boolean;
+}
+
+// Alias used by TrainingStore
+type DebriefData = {
+  streets: StreetResult[];
+  overallScore: number;
+};
+
+type LessonResult = {
+  lessonId: string;
+  score: number;
+  scenarioIds: string[];
+};
+```
+
+### Card Format Conversion
+
+Scenario JSON uses pokersolver shorthand strings (e.g., `"Qh"`, `"Kh"`). The training controller converts these to `CardType` objects before emitting to the client:
+
+```typescript
+// "Qh" → { suite: "h", value: "Qh", label: "Q♥" }
+function toCardType(card: string): CardType
+```
+
+This conversion function lives in the training controller. The existing `CardType` interface (`{ suite, value, label }`) is reused as-is.
+
 ---
 
 ## Training Controller
@@ -211,6 +266,7 @@ interface TrainingServerEvents {
 
 - Load lesson JSON files at startup
 - On `training:start` — pick 5 random unseen scenarios, initialize state
+- **Construct and maintain a `Poker`-shaped state object** for each scenario — `makeAIDecision()` expects a full `Poker` game state (`players`, `currentBet`, `pot`, `tableCards`, `bigBlind`, etc.). The training controller builds this from scenario data and updates it as the hand progresses.
 - On `training:action` — record user's decision, compare to optimal, advance street, trigger AI decisions via `makeAIDecision()`
 - On hand complete — compute debrief data and emit `training:debrief`
 - Never expose scenario answers or opponent cards until debrief
@@ -263,9 +319,9 @@ interface TrainingStore {
 
 ### Component Reuse
 
-**Reused as-is:**
-- `Card.tsx` — renders cards in TrainingTable
-- `ActionControls.tsx` — fold/call/raise buttons (hide timer via prop)
+**Reused (with minor refactoring):**
+- `Card.tsx` — renders cards in TrainingTable, no changes needed
+- `ActionControls.tsx` — refactored to accept `onAction` callback prop (see prerequisite refactoring). Multiplayer passes a callback that calls `socket.emit`; training passes a callback that calls `training:action`.
 
 **NOT reused (training has simpler versions):**
 - `GameContainer.tsx` — too coupled to multiplayer socket events
