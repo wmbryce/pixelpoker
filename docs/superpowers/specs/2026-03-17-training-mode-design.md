@@ -200,6 +200,10 @@ interface TrainingServerEvents {
     opponents: OpponentState[];
     playerStack: number;
     playerPosition: Position;
+    playerLastBet: number;       // Player's bet this street (for call amount calc)
+    smallBlind: number;
+    bigBlind: number;
+    lastRaiseSize: number;       // For min-raise calculation
   }) => void;
   'training:debrief': (data: {
     streets: StreetResult[];
