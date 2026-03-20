@@ -4,6 +4,7 @@ import { useGameStore } from './store/gameStore';
 import GameContainer from './Components/GameContainer';
 import ChatContainer from './Components/ChatContainer';
 import WelcomeView from './Components/WelcomeView';
+import TrainingView from './Components/training/TrainingView';
 import NotFoundScreen from './Components/NotFoundScreen';
 import {
   getOrCreateClientId,
@@ -25,6 +26,7 @@ function App() {
 
   // True while a silent auto-rejoin is in flight — prevents WelcomeView flashing
   const [isAttemptingRejoin, setIsAttemptingRejoin] = useState(false);
+  const [showTraining, setShowTraining] = useState(false);
 
   const setupRoom = (
     userId: string,
@@ -105,6 +107,14 @@ function App() {
     setRoom(null);
   };
 
+  if (showTraining) {
+    return (
+      <div className="flex flex-col w-full min-h-screen bg-vice-bg text-white">
+        <TrainingView onBack={() => setShowTraining(false)} />
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col w-full min-h-screen bg-vice-bg text-white">
       {username && room ? (
@@ -113,7 +123,7 @@ function App() {
           <ChatContainer />
         </div>
       ) : (
-        <WelcomeView setupRoom={setupRoom} />
+        <WelcomeView setupRoom={setupRoom} onTraining={() => setShowTraining(true)} />
       )}
     </div>
   );

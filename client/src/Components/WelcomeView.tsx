@@ -13,6 +13,7 @@ type Step = 'home' | 'create' | 'create-confirm' | 'join-code' | 'join-name' | '
 
 interface Props {
   setupRoom: (userId: string, roomId: string, smallBlind?: number, bigBlind?: number, aiCount?: number) => void;
+  onTraining: () => void;
 }
 
 const STEP_TITLES: Record<Step, string> = {
@@ -25,7 +26,7 @@ const STEP_TITLES: Record<Step, string> = {
   'quick-play':     'QUICK PLAY',
 };
 
-function WelcomeView({ setupRoom }: Props) {
+function WelcomeView({ setupRoom, onTraining }: Props) {
   // If ?room= is in the URL (shared link or failed rejoin), skip to join-name
   const urlRoom = getRoomFromUrl();
   const [step, setStep] = useState<Step>(urlRoom ? 'join-name' : 'home');
@@ -84,6 +85,7 @@ function WelcomeView({ setupRoom }: Props) {
             onCreate={() => setStep('create')}
             onJoin={() => setStep('join-code')}
             onQuickPlay={() => setStep('quick-play')}
+            onTraining={onTraining}
           />
         );
       case 'create':
