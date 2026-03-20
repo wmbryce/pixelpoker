@@ -10,6 +10,7 @@ import { initializeGame } from './controllers/gameplay';
 import { findQuickRoom } from './controllers/quickplay';
 import { rooms, publicRooms, init as initRoomManager } from './controllers/roomManager';
 import { registerHandlers } from './controllers/socketHandlers';
+import { registerTrainingHandlers } from './controllers/trainingSocketHandlers';
 
 const PORT = Number(process.env.PORT) || 8000;
 const CORS_ORIGIN = process.env.CLIENT_ORIGIN ?? 'http://localhost:3000';
@@ -68,6 +69,7 @@ if (IS_PROD) {
 
 initRoomManager(io);
 registerHandlers(io);
+registerTrainingHandlers(io);
 
 httpServer.listen(PORT, () => {
   console.log(chalk.green(`Server listening on :${PORT}`));
