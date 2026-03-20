@@ -1,0 +1,198 @@
+{
+  "id": "position-ranges",
+  "number": 1,
+  "title": "Position & Opening Ranges",
+  "description": "Know when to play and when to fold based on where you sit",
+  "conceptIntro": "Your position at the table is one of the most important factors in deciding which hands to play. The later you act, the more information you have about what other players are doing — and the wider range of hands you can profitably play. Early position demands strong hands. Late position lets you open up.",
+  "keyTakeaway": "Play tighter in early position, wider in late position",
+  "prerequisite": null,
+  "scenarios": [
+    {
+      "id": "pr-01",
+      "playerCards": ["As", "Kd"],
+      "communityCards": ["Qh", "7c", "2s", "Jd", "4h"],
+      "playerPosition": "BTN",
+      "playerStack": 1000,
+      "smallBlind": 5,
+      "bigBlind": 10,
+      "opponents": [
+        { "persona": "ALICE", "cards": ["Tc", "9c"], "stack": 1000, "position": "SB" },
+        { "persona": "VINNY", "cards": ["8h", "6h"], "stack": 1000, "position": "BB" }
+      ],
+      "optimalActions": {
+        "preflop": {
+          "action": "raise",
+          "raiseAmount": 30,
+          "reasoning": "AKo on the button is a premium hand. With position and a strong holding, a 3x raise is standard to build the pot and narrow the field.",
+          "metrics": { "equity": 0.65, "potOdds": 0, "handStrength": 0.85 }
+        },
+        "flop": {
+          "action": "raise",
+          "raiseAmount": 40,
+          "reasoning": "You flopped a gutshot straight draw (need a T or J) plus two overcards. With top pair potential and position, a continuation bet of about 2/3 pot is strong.",
+          "metrics": { "equity": 0.52, "potOdds": 0, "handStrength": 0.45 }
+        },
+        "turn": {
+          "action": "raise",
+          "raiseAmount": 60,
+          "reasoning": "The J on the turn gives you top pair top kicker (TPTK). This is a strong value bet — charge draws and worse pairs.",
+          "metrics": { "equity": 0.78, "potOdds": 0, "handStrength": 0.75 }
+        },
+        "river": {
+          "action": "raise",
+          "raiseAmount": 80,
+          "reasoning": "You still have TPTK on a relatively dry board. A value bet targets worse pairs and Qx hands.",
+          "metrics": { "equity": 0.72, "potOdds": 0, "handStrength": 0.70 }
+        }
+      }
+    },
+    {
+      "id": "pr-02",
+      "playerCards": ["7d", "2c"],
+      "communityCards": ["Ah", "Kc", "9s", "3d", "Jh"],
+      "playerPosition": "HJ",
+      "playerStack": 1000,
+      "smallBlind": 5,
+      "bigBlind": 10,
+      "opponents": [
+        { "persona": "NIKO", "cards": ["As", "Qd"], "stack": 1000, "position": "CO" },
+        { "persona": "SUKI", "cards": ["Kh", "Jc"], "stack": 1000, "position": "BTN" }
+      ],
+      "optimalActions": {
+        "preflop": {
+          "action": "fold",
+          "reasoning": "72o is the worst hand in poker. In the hijack with players still to act behind you, this is a clear fold regardless of any other factor.",
+          "metrics": { "equity": 0.32, "potOdds": 0, "handStrength": 0.05 }
+        },
+        "flop": {
+          "action": "fold",
+          "reasoning": "If you somehow got here, you've completely missed this board. Fold.",
+          "metrics": { "equity": 0.04, "potOdds": 0, "handStrength": 0.02 }
+        },
+        "turn": {
+          "action": "fold",
+          "reasoning": "Still nothing. Fold.",
+          "metrics": { "equity": 0.04, "potOdds": 0, "handStrength": 0.02 }
+        },
+        "river": {
+          "action": "fold",
+          "reasoning": "No improvement. Fold.",
+          "metrics": { "equity": 0.04, "potOdds": 0, "handStrength": 0.02 }
+        }
+      }
+    },
+    {
+      "id": "pr-03",
+      "playerCards": ["Jh", "Th"],
+      "communityCards": ["9h", "5c", "2d", "8h", "Ks"],
+      "playerPosition": "CO",
+      "playerStack": 1000,
+      "smallBlind": 5,
+      "bigBlind": 10,
+      "opponents": [
+        { "persona": "BUBBA", "cards": ["Ad", "5d"], "stack": 1000, "position": "BTN" },
+        { "persona": "ALICE", "cards": ["Qc", "Tc"], "stack": 1000, "position": "BB" }
+      ],
+      "optimalActions": {
+        "preflop": {
+          "action": "raise",
+          "raiseAmount": 25,
+          "reasoning": "JTs is a strong suited connector. In the cutoff, this is in your opening range — raise to build the pot with a hand that plays well post-flop.",
+          "metrics": { "equity": 0.50, "potOdds": 0, "handStrength": 0.55 }
+        },
+        "flop": {
+          "action": "raise",
+          "raiseAmount": 30,
+          "reasoning": "You flopped an open-ended straight draw plus a flush draw — a monster drawing hand with ~54% equity. Bet for value and to build the pot.",
+          "metrics": { "equity": 0.54, "potOdds": 0, "handStrength": 0.48 }
+        },
+        "turn": {
+          "action": "raise",
+          "raiseAmount": 60,
+          "reasoning": "The 8h completes your flush! You have the second-nut flush (J-high). Value bet strongly.",
+          "metrics": { "equity": 0.92, "potOdds": 0, "handStrength": 0.90 }
+        },
+        "river": {
+          "action": "raise",
+          "raiseAmount": 80,
+          "reasoning": "Your flush holds. The K on the river might have improved someone with Kx, but your flush beats any single pair. Value bet.",
+          "metrics": { "equity": 0.88, "potOdds": 0, "handStrength": 0.85 }
+        }
+      }
+    },
+    {
+      "id": "pr-04",
+      "playerCards": ["Qs", "9s"],
+      "communityCards": ["Kh", "Td", "3c", "7s", "2h"],
+      "playerPosition": "SB",
+      "playerStack": 1000,
+      "smallBlind": 5,
+      "bigBlind": 10,
+      "opponents": [
+        { "persona": "VINNY", "cards": ["Kc", "8d"], "stack": 1000, "position": "HJ" },
+        { "persona": "CHAD", "cards": ["Ad", "Jh"], "stack": 1000, "position": "BTN" }
+      ],
+      "optimalActions": {
+        "preflop": {
+          "action": "call",
+          "reasoning": "Q9s in the small blind is a marginal hand. Against a raise from the hijack, this is a borderline call — suited helps, but out of position is a disadvantage. Calling is acceptable; folding is also reasonable.",
+          "metrics": { "equity": 0.42, "potOdds": 0.33, "handStrength": 0.38 }
+        },
+        "flop": {
+          "action": "check",
+          "reasoning": "You have a gutshot straight draw (need a J) but no pair. Out of position with a marginal draw, checking is correct. Let the aggressor bet if they want.",
+          "metrics": { "equity": 0.22, "potOdds": 0, "handStrength": 0.15 }
+        },
+        "turn": {
+          "action": "fold",
+          "reasoning": "The 7s doesn't help you. With only a gutshot (4 outs, ~8% on the river) and likely facing a bet, the pot odds won't justify a call.",
+          "metrics": { "equity": 0.08, "potOdds": 0.25, "handStrength": 0.08 }
+        },
+        "river": {
+          "action": "fold",
+          "reasoning": "No improvement. Fold.",
+          "metrics": { "equity": 0.05, "potOdds": 0, "handStrength": 0.05 }
+        }
+      }
+    },
+    {
+      "id": "pr-05",
+      "playerCards": ["Ah", "Ac"],
+      "communityCards": ["7d", "4s", "2h", "Tc", "6c"],
+      "playerPosition": "HJ",
+      "playerStack": 1000,
+      "smallBlind": 5,
+      "bigBlind": 10,
+      "opponents": [
+        { "persona": "SUKI", "cards": ["Kh", "Qh"], "stack": 1000, "position": "CO" },
+        { "persona": "NIKO", "cards": ["9d", "8d"], "stack": 1000, "position": "BB" }
+      ],
+      "optimalActions": {
+        "preflop": {
+          "action": "raise",
+          "raiseAmount": 30,
+          "reasoning": "Pocket aces is the best starting hand. Always raise — from any position. A 3x open is standard.",
+          "metrics": { "equity": 0.85, "potOdds": 0, "handStrength": 0.95 }
+        },
+        "flop": {
+          "action": "raise",
+          "raiseAmount": 35,
+          "reasoning": "You have an overpair on a dry, disconnected board. This is an ideal c-bet spot — charge draws and worse pairs.",
+          "metrics": { "equity": 0.88, "potOdds": 0, "handStrength": 0.85 }
+        },
+        "turn": {
+          "action": "raise",
+          "raiseAmount": 60,
+          "reasoning": "Still the overpair on a board with no flush draws. The Tc could have given someone a pair, but AA is still well ahead. Continue betting for value.",
+          "metrics": { "equity": 0.82, "potOdds": 0, "handStrength": 0.80 }
+        },
+        "river": {
+          "action": "raise",
+          "raiseAmount": 80,
+          "reasoning": "The 6c completes a possible straight (53 or 87) but these are unlikely holdings given the preflop action. Your aces are still strong — value bet.",
+          "metrics": { "equity": 0.75, "potOdds": 0, "handStrength": 0.75 }
+        }
+      }
+    }
+  ]
+}

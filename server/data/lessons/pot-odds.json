@@ -1,0 +1,191 @@
+{
+  "id": "pot-odds",
+  "number": 2,
+  "title": "Pot Odds & Calling Decisions",
+  "description": "When the math says call — and when it says fold",
+  "conceptIntro": "Pot odds compare the size of the pot to the cost of your call. If the pot is $100 and you need to call $20, you're getting 5:1 odds — meaning you only need to win 1 in 6 times (about 17%) to break even. When your equity (chance of winning) is higher than the price you're paying, calling is profitable in the long run.",
+  "keyTakeaway": "Compare your chance of winning to the price you're paying",
+  "prerequisite": "position-ranges",
+  "scenarios": [
+    {
+      "id": "po-01",
+      "playerCards": ["Qh", "Jh"],
+      "communityCards": ["Kh", "9s", "4d", "2c", "8h"],
+      "playerPosition": "BTN",
+      "playerStack": 1000,
+      "smallBlind": 5,
+      "bigBlind": 10,
+      "opponents": [
+        { "persona": "ALICE", "cards": ["Kc", "Td"], "stack": 1000, "position": "SB" },
+        { "persona": "VINNY", "cards": ["As", "9d"], "stack": 1000, "position": "BB" }
+      ],
+      "optimalActions": {
+        "preflop": {
+          "action": "call",
+          "reasoning": "QJh on the button is a solid suited broadway hand. Standard call or raise here.",
+          "metrics": { "equity": 0.50, "potOdds": 0.33, "handStrength": 0.55 }
+        },
+        "flop": {
+          "action": "call",
+          "reasoning": "You have a flush draw (9 outs) plus a gutshot straight draw (3 additional outs for a T). That's ~12 outs twice, giving you roughly 45% equity by the river. The pot is offering you much better than the ~20% you need — clear call.",
+          "metrics": { "equity": 0.45, "potOdds": 0.20, "handStrength": 0.35 }
+        },
+        "turn": {
+          "action": "call",
+          "reasoning": "The 2c doesn't help, but you still have your flush draw — 9 outs with one card to come is ~18% equity. If the pot is offering better than 18%, call. With the pot built up on the flop, you're likely getting the right price.",
+          "metrics": { "equity": 0.18, "potOdds": 0.15, "handStrength": 0.20 }
+        },
+        "river": {
+          "action": "raise",
+          "raiseAmount": 80,
+          "reasoning": "The 8h completes your flush! You have the queen-high flush. Time to value bet — charge anyone with a pair or worse flush.",
+          "metrics": { "equity": 0.92, "potOdds": 0, "handStrength": 0.88 }
+        }
+      }
+    },
+    {
+      "id": "po-02",
+      "playerCards": ["8c", "7c"],
+      "communityCards": ["Ac", "5c", "Ks", "Td", "3h"],
+      "playerPosition": "CO",
+      "playerStack": 1000,
+      "smallBlind": 5,
+      "bigBlind": 10,
+      "opponents": [
+        { "persona": "NIKO", "cards": ["Ad", "Qh"], "stack": 1000, "position": "BTN" },
+        { "persona": "BUBBA", "cards": ["Kd", "Jd"], "stack": 1000, "position": "BB" }
+      ],
+      "optimalActions": {
+        "preflop": {
+          "action": "raise",
+          "raiseAmount": 25,
+          "reasoning": "87s in the cutoff is a playable suited connector. Open raise to build the pot with a hand that has good implied odds.",
+          "metrics": { "equity": 0.45, "potOdds": 0, "handStrength": 0.40 }
+        },
+        "flop": {
+          "action": "call",
+          "reasoning": "You flopped a flush draw with 8c7c (9 outs). The ace-high board likely hit your opponents, but you have ~35% equity to the river. Getting at least 2:1 on a call makes this profitable.",
+          "metrics": { "equity": 0.35, "potOdds": 0.25, "handStrength": 0.30 }
+        },
+        "turn": {
+          "action": "fold",
+          "reasoning": "The Td doesn't help your flush draw. With only one card to come, your 9 outs give you ~18% equity. If facing a large bet (more than 1/4 pot), the pot odds no longer justify the call. This is where discipline pays off.",
+          "metrics": { "equity": 0.18, "potOdds": 0.30, "handStrength": 0.15 }
+        },
+        "river": {
+          "action": "fold",
+          "reasoning": "Missed the flush. Fold.",
+          "metrics": { "equity": 0.05, "potOdds": 0, "handStrength": 0.05 }
+        }
+      }
+    },
+    {
+      "id": "po-03",
+      "playerCards": ["Td", "9d"],
+      "communityCards": ["Jd", "8c", "3s", "2d", "Qh"],
+      "playerPosition": "BTN",
+      "playerStack": 1000,
+      "smallBlind": 5,
+      "bigBlind": 10,
+      "opponents": [
+        { "persona": "SUKI", "cards": ["Jc", "Ts"], "stack": 1000, "position": "SB" },
+        { "persona": "ALICE", "cards": ["As", "8s"], "stack": 1000, "position": "BB" }
+      ],
+      "optimalActions": {
+        "preflop": {
+          "action": "raise",
+          "raiseAmount": 25,
+          "reasoning": "T9s on the button is a strong suited connector in late position. Raise to build the pot.",
+          "metrics": { "equity": 0.48, "potOdds": 0, "handStrength": 0.50 }
+        },
+        "flop": {
+          "action": "call",
+          "reasoning": "You flopped an open-ended straight draw (any Q or 7 makes your straight = 8 outs) plus a backdoor flush draw. With ~32% equity and likely good pot odds, calling is correct.",
+          "metrics": { "equity": 0.32, "potOdds": 0.22, "handStrength": 0.28 }
+        },
+        "turn": {
+          "action": "call",
+          "reasoning": "The 2d gives you a flush draw on top of your straight draw! You now have 8 straight outs + 7 additional flush outs = 15 outs, or roughly 30% equity with one card to come. With the pot size, you're getting excellent odds.",
+          "metrics": { "equity": 0.30, "potOdds": 0.18, "handStrength": 0.25 }
+        },
+        "river": {
+          "action": "raise",
+          "raiseAmount": 70,
+          "reasoning": "The Qh completes your straight (Q-J-T-9-8)! Value bet your made hand.",
+          "metrics": { "equity": 0.85, "potOdds": 0, "handStrength": 0.82 }
+        }
+      }
+    },
+    {
+      "id": "po-04",
+      "playerCards": ["6h", "5h"],
+      "communityCards": ["Kd", "7h", "2c", "4h", "Js"],
+      "playerPosition": "BB",
+      "playerStack": 1000,
+      "smallBlind": 5,
+      "bigBlind": 10,
+      "opponents": [
+        { "persona": "VINNY", "cards": ["Kc", "9c"], "stack": 1000, "position": "CO" },
+        { "persona": "CHAD", "cards": ["Ah", "Td"], "stack": 1000, "position": "BTN" }
+      ],
+      "optimalActions": {
+        "preflop": {
+          "action": "check",
+          "reasoning": "65s in the big blind when facing a limp or min-raise is a check/call. You're already invested and have a suited connector with implied odds.",
+          "metrics": { "equity": 0.38, "potOdds": 0.33, "handStrength": 0.30 }
+        },
+        "flop": {
+          "action": "check",
+          "reasoning": "You have a gutshot straight draw (need a 3 or 8 for a straight) and a backdoor flush draw. Not enough equity to bet, but worth seeing a turn cheaply.",
+          "metrics": { "equity": 0.15, "potOdds": 0, "handStrength": 0.10 }
+        },
+        "turn": {
+          "action": "call",
+          "reasoning": "The 4h gives you an open-ended straight draw AND a flush draw! You now have 8 straight outs + 7 flush outs = 15 outs (~30% equity). With the pot offering 3:1 or better, this is a clear call.",
+          "metrics": { "equity": 0.30, "potOdds": 0.20, "handStrength": 0.25 }
+        },
+        "river": {
+          "action": "fold",
+          "reasoning": "The Js misses all your draws. No pair, no straight, no flush. Fold to any bet.",
+          "metrics": { "equity": 0.03, "potOdds": 0, "handStrength": 0.03 }
+        }
+      }
+    },
+    {
+      "id": "po-05",
+      "playerCards": ["Ac", "Tc"],
+      "communityCards": ["Jc", "6c", "2s", "9h", "5d"],
+      "playerPosition": "CO",
+      "playerStack": 1000,
+      "smallBlind": 5,
+      "bigBlind": 10,
+      "opponents": [
+        { "persona": "ALICE", "cards": ["Jd", "9d"], "stack": 1000, "position": "BTN" },
+        { "persona": "NIKO", "cards": ["Qh", "Qs"], "stack": 1000, "position": "SB" }
+      ],
+      "optimalActions": {
+        "preflop": {
+          "action": "raise",
+          "raiseAmount": 25,
+          "reasoning": "ATs in the cutoff is a strong hand. Raise to build the pot.",
+          "metrics": { "equity": 0.52, "potOdds": 0, "handStrength": 0.58 }
+        },
+        "flop": {
+          "action": "call",
+          "reasoning": "You flopped the nut flush draw (Ac gives you the best possible flush). With 9 outs, you have ~35% equity to the river. Even facing a bet, the pot odds easily justify a call. Never fold the nut flush draw on the flop.",
+          "metrics": { "equity": 0.35, "potOdds": 0.20, "handStrength": 0.32 }
+        },
+        "turn": {
+          "action": "fold",
+          "reasoning": "The 9h doesn't complete your flush. With one card to come, you have 9 outs = ~18% equity. If facing a pot-sized bet (needing 33% equity), folding is correct. This is a tough but disciplined fold — the pot odds don't justify the price.",
+          "metrics": { "equity": 0.18, "potOdds": 0.33, "handStrength": 0.15 }
+        },
+        "river": {
+          "action": "fold",
+          "reasoning": "Missed the flush. Ace-high won't win at showdown against likely hands. Fold.",
+          "metrics": { "equity": 0.08, "potOdds": 0, "handStrength": 0.08 }
+        }
+      }
+    }
+  ]
+}
