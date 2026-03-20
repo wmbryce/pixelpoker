@@ -207,7 +207,7 @@ const RANK_VALUES: Record<string, number> = {
 };
 
 /** Pre-flop hand strength (0–1) based on hole cards only */
-function preFlopStrength(cards: CardType[]): number {
+export function preFlopStrength(cards: CardType[]): number {
   if (cards.length < 2) return 0.3;
 
   const [a, b] = cards;
@@ -235,7 +235,7 @@ function preFlopStrength(cards: CardType[]): number {
 }
 
 /** Post-flop hand strength using pokersolver rank (1–9) normalized to 0–1 */
-function postFlopStrength(holeCards: CardType[], tableCards: CardType[]): number {
+export function postFlopStrength(holeCards: CardType[], tableCards: CardType[]): number {
   const all = [...holeCards, ...tableCards].map((c) => c.value);
   const solved = Hand.solve(all);
   const rank: number = solved.rank;
@@ -279,9 +279,9 @@ export interface AIDecisionResult {
   isBluff: boolean;
 }
 
-export const makeAIDecision = (game: Poker, playerIndex: number): AIDecisionResult => {
+export const makeAIDecision = (game: Poker, playerIndex: number, overridePersona?: AIPersona): AIDecisionResult => {
   const player = game.players[playerIndex];
-  const persona = personaMap.get(player.id);
+  const persona = overridePersona ?? personaMap.get(player.id);
 
   // Persona-specific knobs (fallback to defaults if no persona)
   const tightness = persona?.tightness ?? 0.35;
