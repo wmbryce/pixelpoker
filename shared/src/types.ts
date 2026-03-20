@@ -1,3 +1,5 @@
+import type { TrainingClientEvents, TrainingServerEvents } from './trainingTypes';
+
 // ──────────────────────────────────────────────────────────────────────────────
 // Core game types
 // ──────────────────────────────────────────────────────────────────────────────
@@ -90,14 +92,14 @@ export interface GameAction {
   bet?: number;
 }
 
-export interface ServerToClientEvents {
+export interface ServerToClientEvents extends TrainingServerEvents {
   message: (data: ChatMessage) => void;
   updateGame: (data: Poker) => void;
   roomJoined: (data: { playerIndex: number; game: Poker }) => void;
   error: (data: { message: string }) => void;
 }
 
-export interface ClientToServerEvents {
+export interface ClientToServerEvents extends TrainingClientEvents {
   joinRoom: (data: { username: string; room: string; clientId: string; smallBlind?: number; bigBlind?: number; aiCount?: number }) => void;
   rejoinRoom: (data: { clientId: string; room: string }) => void;
   chat: (text: string) => void;

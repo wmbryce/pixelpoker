@@ -4,6 +4,7 @@
   "module": "./src/types.ts",
   "types": "./src/types.ts",
   "exports": {
-    ".": "./src/types.ts"
+    ".": "./src/types.ts",
+    "./src/trainingTypes": "./src/trainingTypes.ts"
   }
 }
