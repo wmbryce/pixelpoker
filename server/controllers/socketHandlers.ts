@@ -7,7 +7,6 @@ import { assignPersona } from './ai';
 import { fold, nextPlayer } from './actions';
 import {
   rooms,
-  publicRooms,
   sessions,
   clientRecords,
   broadcastGame,

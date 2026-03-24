@@ -5,7 +5,7 @@ import type {
   Lesson, LessonMeta, Scenario, TrainingGameState,
   StreetResult, DebriefData, LessonCompleteData, OpponentState,
 } from '@pixelpoker/shared/src/trainingTypes';
-import { makeAIDecision, preFlopStrength, postFlopStrength } from './ai';
+import { makeAIDecision } from './ai';
 import type { AIPersona } from './ai';
 import { initializeGame, createAIPlayer, createPlayer } from './gameplay';
 
@@ -21,7 +21,7 @@ export function toCardType(card: string): CardType {
 
 // ── Lesson Loading ──
 
-const LESSONS_DIR = join(import.meta.dir, '..', 'data', 'lessons');
+const LESSONS_DIR = join(import.meta.dirname!, '..', 'data', 'lessons');
 
 export function loadLessons(): Lesson[] {
   const files = readdirSync(LESSONS_DIR).filter(f => f.endsWith('.json'));
@@ -36,7 +36,6 @@ function toLessonMeta(lesson: Lesson): LessonMeta {
 // ── Street Helpers ──
 
 const STREETS = ['preflop', 'flop', 'turn', 'river'] as const;
-type Street = typeof STREETS[number];
 
 function communityCardsForStage(scenario: Scenario, stage: number): CardType[] {
   if (stage === 0) return [];
@@ -67,7 +66,6 @@ type ActionResult =
 
 export class TrainingSession {
   private lessons: Lesson[];
-  private currentLesson: Lesson | null = null;
   private selectedScenarios: Scenario[] = [];
   private handIndex = 0;
   private currentScenario: Scenario | null = null;
@@ -91,7 +89,6 @@ export class TrainingSession {
     const lesson = this.lessons.find(l => l.id === lessonId);
     if (!lesson) throw new Error(`Lesson not found: ${lessonId}`);
 
-    this.currentLesson = lesson;
     this.handIndex = -1;
     this.handResults = [];
 

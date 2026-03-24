@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useState } from 'react';
 import socket from '../../socket';
 import { useTrainingStore } from '../../store/trainingStore';
 import LessonIntro from './LessonIntro';
@@ -25,13 +25,20 @@ export default function TrainingView({ onBack }: TrainingViewProps) {
     loadProgress, reset,
   } = store;
 
+  const [error, setError] = useState<string | null>(null);
+  const [connected, setConnected] = useState(socket.connected);
+
   useEffect(() => {
     loadProgress();
 
     // Ensure socket is connected
     if (!socket.connected) socket.connect();
 
+    const onConnect = () => setConnected(true);
+    const onDisconnect = () => setConnected(false);
+
     const onLessonIntro = (data: { lesson: LessonMeta; handNumber: number; totalHands: number }) => {
+      setError(null);
       setLessonIntro(data.lesson, data.handNumber, data.totalHands);
     };
 
@@ -48,16 +55,26 @@ export default function TrainingView({ onBack }: TrainingViewProps) {
       setLessonResult(data);
     };
 
+    const onTrainingError = (data: { message: string }) => {
+      setError(data.message);
+    };
+
+    socket.on('connect', onConnect);
+    socket.on('disconnect', onDisconnect);
     socket.on('training:lessonIntro', onLessonIntro);
     socket.on('training:gameState', onGameState);
     socket.on('training:debrief', onDebrief);
     socket.on('training:lessonComplete', onLessonComplete);
+    socket.on('training:error', onTrainingError);
 
     return () => {
+      socket.off('connect', onConnect);
+      socket.off('disconnect', onDisconnect);
       socket.off('training:lessonIntro', onLessonIntro);
       socket.off('training:gameState', onGameState);
       socket.off('training:debrief', onDebrief);
       socket.off('training:lessonComplete', onLessonComplete);
+      socket.off('training:error', onTrainingError);
     };
   }, []);
 
@@ -173,6 +190,18 @@ export default function TrainingView({ onBack }: TrainingViewProps) {
               );
             })}
           </div>
+
+          {error && (
+            <div className="text-vice-pink text-xs text-center mt-3 font-vcr">
+              {error}
+            </div>
+          )}
+
+          {!connected && (
+            <div className="text-vice-gold text-xs text-center mt-3 font-vcr animate-pulse">
+              Connecting to server...
+            </div>
+          )}
 
           <div className="text-center mt-5">
             <button onClick={onBack} className="text-vice-muted text-xs tracking-widest uppercase hover:text-white transition-colors">

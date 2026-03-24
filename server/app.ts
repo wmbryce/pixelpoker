@@ -58,7 +58,7 @@ app.get('/rooms-quick', (_req, res) => {
 if (IS_PROD) {
   const clientDist = path.join(path.dirname(fileURLToPath(import.meta.url)), '../client/dist');
   app.use(express.static(clientDist));
-  app.get('*', (_req, res) => {
+  app.get('/{*splat}', (_req, res) => {
     res.sendFile(path.join(clientDist, 'index.html'));
   });
 }
