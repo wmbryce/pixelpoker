@@ -5,6 +5,7 @@ REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BUN="$HOME/.bun/bin/bun"
 
 echo "→ Pulling latest changes..."
+git -C "$REPO_DIR" checkout -- bun.lock
 git -C "$REPO_DIR" pull origin master
 
 echo "→ Installing dependencies..."
