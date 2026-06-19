@@ -1,13 +1,13 @@
 # Pixel Poker
 
-A real-time multiplayer Texas Hold'em poker game with pixel art cards.
+A real-time multiplayer Texas Hold'em poker game with pixel-art styling, private rooms, quickplay, chat, AI seats, and a training mode.
 
 ## Tech Stack
 
 | Layer | Technology |
 |---|---|
 | Runtime & package manager | [Bun](https://bun.sh) |
-| Frontend | React 19, TypeScript 5, Vite |
+| Frontend | React 19, TypeScript 6, Vite |
 | Styling | Tailwind CSS |
 | Client state | Zustand |
 | Real-time communication | Socket.IO |
@@ -18,19 +18,20 @@ A real-time multiplayer Texas Hold'em poker game with pixel art cards.
 
 ```
 pixelpoker/
-├── shared/          # Shared TypeScript types (CardType, Poker, socket events, etc.)
-├── client/          # React frontend
+├── shared/          # Shared TypeScript types: poker, socket, training
+├── client/          # React/Vite frontend
 │   └── src/
-│       ├── Components/   # UI components (Table, Player, Card, Hand, Chat)
-│       ├── store/        # Zustand game state store
-│       └── socket.ts     # Socket.IO client singleton
-└── server/          # Express + Socket.IO backend
-    ├── app.ts            # Server entry point
-    ├── controllers/      # Game logic (deck, gameplay, actions)
-    └── __tests__/        # Bun unit tests
+│       ├── Components/          # Table, player, cards, chat, welcome screens
+│       ├── Components/training/ # Lesson + debrief training UI
+│       ├── store/               # Zustand game state store
+│       └── socket.ts            # Socket.IO client singleton
+└── server/          # Bun + Express + Socket.IO backend
+    ├── app.ts                    # Server entry point + REST endpoints
+    ├── controllers/              # Gameplay, rooms, quickplay, AI, training
+    └── __tests__/                # Bun unit/integration tests
 ```
 
-The server is the single source of truth for all game state. Clients send actions (raise, call, fold, advance stage) and receive updated state via Socket.IO events.
+The server is the single source of truth for all game state. Clients send actions (raise, call, fold, advance stage) and receive updated state via Socket.IO events. Training uses the same socket layer with lesson-specific events and scoring.
 
 ## Getting Started
 
@@ -55,27 +56,37 @@ bun run --filter server dev
 bun run --filter client dev
 ```
 
-Then open [http://localhost:3000](http://localhost:3000) in your browser.
+Or run both from the root:
 
-To play with multiple players, open the app in separate browser tabs. Each tab enters a username and the **same room name** to join the same game.
+```bash
+bun run dev
+```
+
+Then open http://localhost:3000 in your browser.
+
+## How to Play
+
+1. Enter a username.
+2. Create a room, join by code, or use quickplay; each player starts with chips.
+3. Click **Deal pre-flop** to start — two cards are dealt to each player.
+4. Players take turns acting (raise, check/call, fold); the active seat is highlighted.
+5. Advance through flop, turn, river, and showdown.
+6. At showdown, the winner is determined automatically and the pot is distributed.
+7. The game resets for the next hand.
+
+## Training Mode
+
+Training mode runs guided poker lessons over Socket.IO. The client renders lesson intro, table, street score, HUD, completion, and debrief screens; the server owns lesson lifecycle, phase routing, scoring, and AI/table state.
 
 ## Running Tests
 
 ```bash
 bun test --cwd server
+# or
+bun run test
 ```
 
-Tests cover deck generation, all five game stages (pre-flop through showdown), and player actions (raise, call, fold).
-
-## How to Play
-
-1. Enter a username and room name, then click **Join**
-2. Each player who joins the same room name is added to the table with 1000 chips
-3. Click **Deal pre-flop** to start — two cards are dealt to each player
-4. Players take turns acting (Raise, Check/Call, Fold) — the active seat is highlighted in yellow
-5. After all players have acted, click the deal button to advance to the Flop, Turn, and River
-6. At showdown, the winner is determined automatically and the pot is distributed
-7. The game resets for the next hand
+Tests cover deck generation, all five game stages (pre-flop through showdown), player actions (raise, call, fold), quickplay rooms, and the training socket flow.
 
 ## Building for Production
 
@@ -83,4 +94,4 @@ Tests cover deck generation, all five game stages (pre-flop through showdown), a
 bun run build
 ```
 
-This compiles the client (Vite build → `client/dist/`) and server (`server/dist/`).
+This compiles the client (Vite build → `client/dist/`) and server (`server/dist/`). In production, the Express server serves the built client from `client/dist/`.
