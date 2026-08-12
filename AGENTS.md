@@ -34,14 +34,23 @@ until one of those has run.
 - **Game logic stays pure.** `server/controllers/` has no I/O and no runtime
   dependencies; the Durable Objects supply the effects. Keep it that way — it is
   why the rules are testable without workerd.
-- **Known pre-existing stalls** (carried over from the Express version, not
-  introduced by the port): acting during the 4-second showdown window cancels
-  the auto-deal and strands the table; if every player times out on the same
-  hand the pot is never awarded; and `onGameAction` clears the turn/ai/deal
-  timers *before* `processGameAction` validates, so a rejected action (an
-  under-minimum raise, or an action for a seat that is not on the clock, which
-  is never checked) deletes the alarm and the table waits for a voluntary
-  action. All three are reachable in real play.
+- **A rejected action must change nothing.** `onGameAction` validates through
+  `processGameAction` *before* touching the scheduler, and returns on `null`.
+  That is load-bearing in both directions: clearing timers first is what used to
+  delete the alarm on a bad action and strand the table, and re-arming on
+  rejection would let a client reset its own 30-second clock forever by spamming
+  invalid actions. `processGameAction` is therefore the whole rule check —
+  stage, seat on the clock, seat still playable — and returning a result means
+  the action really happened.
+- **Seat identity comes from the connection.** `onGameAction` compares
+  `action.playerIndex` against the seat the socket occupies. `advance` is the one
+  exemption: it is table-level and the client sends it with `playerIndex: -1`.
+- **Every hand must reach stage 5.** The auto-deal is the only thing that starts
+  the next hand and it only fires from stage 5, so a hand that ends anywhere else
+  strands the table. `resolveActionResult` therefore ends the hand as soon as one
+  seat is left, before consulting `actionsRemaining`, and `awardPotDirectly`
+  voids a hand with *no* seats left by refunding contributions rather than
+  leaving an unclaimable pot in the middle.
 
 ## Maintaining this file
 

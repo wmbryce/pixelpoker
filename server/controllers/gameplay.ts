@@ -263,9 +263,51 @@ const determineWinner = (game: Poker): void => {
 // Award pot directly (everyone else folded — no pokersolver needed)
 // ──────────────────────────────────────────────────────────────────────────────
 
+/**
+ * Hand the pot back to the seats that built it. Used when a hand ends with
+ * nobody left to win it, so the chips have to leave the middle somehow.
+ */
+const refundContributions = (game: Poker): void => {
+  let remaining = game.pot;
+
+  for (const player of game.players) {
+    // `min` keeps chips conserved if the pot and the per-hand ledger disagree.
+    const refund = Math.min(player.contributed, remaining);
+    player.stack += refund;
+    player.contributed = 0;
+    remaining -= refund;
+  }
+
+  // Chips the ledger never saw split evenly — the same fallback
+  // `determineWinner` applies to an untracked pot at showdown.
+  if (remaining > 0) {
+    const share = Math.floor(remaining / game.players.length);
+    for (const player of game.players) player.stack += share;
+    game.players[0].stack += remaining - share * game.players.length;
+  }
+
+  game.pot = 0;
+};
+
 export const awardPotDirectly = (game: Poker): Poker => {
   const next = cloneDeep(game);
   const active = next.players.map((p, i) => ({ p, i })).filter(({ p }) => p.isActive);
+
+  // Nobody is left to claim it — every seat folded or timed out on the same
+  // hand. There is no winner, so the hand is voided and each seat gets back
+  // what it put in. It still has to finish at stage 5: that is the only stage
+  // the auto-deal moves on from, so a pot left in the middle strands the table.
+  if (active.length === 0) {
+    refundContributions(next);
+    next.winner = [];
+    next.winnerHandName = '';
+    next.winnerCards = [];
+    next.stage = 5;
+    next.timerDeadline = null;
+    next.actionsRemaining = 0;
+    return next;
+  }
+
   if (active.length !== 1) return next;
 
   const { p: winner, i: winnerIndex } = active[0];

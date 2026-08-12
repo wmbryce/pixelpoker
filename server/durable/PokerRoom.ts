@@ -417,14 +417,24 @@ export class PokerRoom extends DurableObject<Env> {
     const game = this.loadGame();
     if (!game) return;
 
-    this.scheduler.clear('turn', 'ai', 'deal');
-
-    const updated = processGameAction(game, action);
-    if (updated) {
-      await this.handleActionResult(updated);
-    } else {
-      await this.scheduler.sync();
+    // A connection may only act for the seat it occupies. `advance` is a
+    // table-level request — the client sends it with playerIndex -1 — so it is
+    // the one action not tied to a seat.
+    if (action.type !== 'advance' && action.playerIndex !== state.playerIndex) {
+      this.send(ws, 'error', { message: 'NOT_YOUR_SEAT' });
+      return;
     }
+
+    // Validate before touching a timer, never after. A rejected action leaves
+    // the turn clock, its generation and any pending auto-deal exactly as they
+    // were, so it can neither strand the table nor push its own deadline out.
+    const updated = processGameAction(game, action);
+    if (!updated) {
+      this.send(ws, 'error', { message: 'ACTION_REJECTED' });
+      return;
+    }
+
+    await this.handleActionResult(updated);
   }
 
   private onChangeBlinds(ws: WebSocket, data: { smallBlind: number; bigBlind: number }): void {
@@ -629,7 +639,13 @@ export class PokerRoom extends DurableObject<Env> {
 
     const { action, chatTrigger } = makeAIDecision(game, actingIndex, personaForPlayer(player));
     const result = processGameAction(game, action);
-    if (!result) return;
+    // A decision the rules turn down cannot simply be dropped: this alarm has
+    // already been drained, so returning here would leave the seat on a clock
+    // that no longer exists. Treat it as the seat running out of time.
+    if (!result) {
+      await this.handleActionResult(foldAndAdvance(game, actingIndex));
+      return;
+    }
 
     this.queueAIChat(game, actingIndex, chatTrigger);
     await this.handleActionResult(result);

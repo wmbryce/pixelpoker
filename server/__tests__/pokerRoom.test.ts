@@ -26,6 +26,9 @@ interface TimerRow extends Record<string, SqlStorageValue> {
 /** The room enforces a 300ms per-connection cooldown between actions. */
 const ACTION_COOLDOWN_MS = 300;
 
+/** Sum of all player stacks + pot. Should be invariant through any hand. */
+const totalChips = (game: Poker) => game.players.reduce((sum, p) => sum + p.stack, 0) + game.pot;
+
 let roomCounter = 0;
 const nextRoom = () => `TEST-ROOM-${++roomCounter}`;
 
@@ -554,6 +557,142 @@ describe('PokerRoom — lobby occupancy', () => {
     table.clients[0].emit('chat', 'still here');
     const heard = await table.clients[1].waitFor<ChatMessage>('message');
     expect(heard).toMatchObject({ username: 'ALICE', text: 'still here' });
+  });
+});
+
+describe('PokerRoom — the table always has a way forward', () => {
+  it('still deals the next hand when someone acts during the showdown window', async () => {
+    const table = await Table.open(['ALICE', 'BOB']);
+    await table.deal();
+    expect((await table.foldToShowdown()).stage).toBe(5);
+
+    const dealBefore = (await timers(table.room)).find((r) => r.kind === 'deal');
+    expect(dealBefore).toBeDefined();
+
+    // A stray click during the 4-second pause: the action is not legal at
+    // showdown, and rejecting it must not take the pending deal with it.
+    await table.act(0, 'fold');
+    await table.act(1, 'call');
+
+    const dealAfter = (await timers(table.room)).find((r) => r.kind === 'deal');
+    expect(dealAfter).toBeDefined();
+    expect(dealAfter!.due_at).toBe(dealBefore!.due_at);
+    expect(await alarmAt(table.room)).toBe(
+      Math.min(...(await timers(table.room)).map((r) => r.due_at)),
+    );
+
+    expect(await runDurableObjectAlarm(stubFor(table.room))).toBe(true);
+    expect((await table.waitForStoredStage(1)).players.every((p) => p.cards.length === 2)).toBe(
+      true,
+    );
+  });
+
+  it('ends the hand and awards the pot when every seat times out on it', async () => {
+    const table = await Table.open(['ALICE', 'BOB']);
+    const dealt = await table.deal();
+    const chipsBefore = totalChips(dealt);
+
+    // Nobody acts, ever. Run the clock until the hand leaves the betting rounds.
+    for (let guard = 0; guard < 6; guard++) {
+      const game = (await table.game())!;
+      if (game.stage < 1 || game.stage > 4) break;
+      expect(await runDurableObjectAlarm(stubFor(table.room))).toBe(true);
+      await TestClient.settle(150);
+    }
+
+    const concluded = (await table.game())!;
+    expect(concluded.stage).toBe(5);
+    expect(concluded.pot).toBe(0);
+    expect(totalChips(concluded)).toBe(chipsBefore);
+
+    // And the table moves on rather than sitting on a settled pot.
+    expect((await timers(table.room)).some((r) => r.kind === 'deal')).toBe(true);
+    expect(await runDurableObjectAlarm(stubFor(table.room))).toBe(true);
+    await table.waitForStoredStage(1);
+  });
+
+  it('moves the table on when the rules turn down an AI seat decision', async () => {
+    const table = await Table.open(['ALICE'], { aiCount: 1 });
+    const dealt = await table.deal();
+    const aiSeat = dealt.actionOn;
+    expect(dealt.players[aiSeat].isAI).toBe(true);
+
+    // An AI seat that cannot legally act. Its alarm is drained the moment it
+    // fires, so dropping the decision would leave the table with no clock.
+    await writeStoredGame(table.room, (game) => {
+      game.players[aiSeat].isAllIn = true;
+    });
+
+    expect(await runDurableObjectAlarm(stubFor(table.room))).toBe(true);
+    await TestClient.settle(200);
+
+    const after = (await table.game())!;
+    expect(after.stage).toBe(5);
+    expect(await alarmAt(table.room)).not.toBeNull();
+    expect((await timers(table.room)).some((r) => r.kind === 'deal')).toBe(true);
+  });
+
+  it('leaves the turn clock armed when an action is rejected', async () => {
+    const table = await Table.open(['ALICE', 'BOB']);
+    const dealt = await table.deal();
+    const onClock = dealt.actionOn;
+    const clockBefore = (await timers(table.room)).find((r) => r.kind === 'turn');
+    expect(clockBefore).toBeDefined();
+
+    // An under-minimum raise from the seat that *is* on the clock. Rejecting it
+    // must not disarm the alarm that is about to fold this seat, and must not
+    // push the deadline out either — otherwise the clock is resettable at will.
+    await table.act(onClock, 'raise', dealt.currentBet + 1);
+
+    const clockAfter = (await timers(table.room)).filter((r) => r.kind === 'turn');
+    expect(clockAfter).toHaveLength(1);
+    expect(clockAfter[0].due_at).toBe(clockBefore!.due_at);
+    expect(clockAfter[0].seq).toBe(clockBefore!.seq);
+    expect(await alarmAt(table.room)).toBe(clockBefore!.due_at);
+
+    // The seat still runs out of time.
+    expect(await runDurableObjectAlarm(stubFor(table.room))).toBe(true);
+    await TestClient.settle(150);
+    const after = await table.game();
+    expect(after!.players[onClock].lastAction).toBe('FOLD');
+  });
+});
+
+describe('PokerRoom — an action must come from the seat that sent it', () => {
+  it("refuses an action carrying another player's seat index", async () => {
+    const table = await Table.open(['ALICE', 'BOB']);
+    const dealt = await table.deal();
+    const onClock = dealt.actionOn;
+    const impostor = (onClock + 1) % 2;
+
+    await TestClient.settle(ACTION_COOLDOWN_MS + 60);
+    table.clients[impostor].emit('gameAction', { type: 'fold', playerIndex: onClock });
+    await TestClient.settle(150);
+
+    const error = await table.clients[impostor].waitFor<{ message: string }>('error');
+    expect(error.message).toBe('NOT_YOUR_SEAT');
+
+    const after = await table.game();
+    expect(after!.players[onClock].isActive).toBe(true);
+    expect(after!.players[onClock].lastAction).toBeNull();
+    expect(after!.actionOn).toBe(onClock);
+  });
+
+  it('refuses an action from a seat that is not on the clock', async () => {
+    const table = await Table.open(['ALICE', 'BOB']);
+    const dealt = await table.deal();
+    const offClock = (dealt.actionOn + 1) % 2;
+
+    // Own seat, wrong turn — the rules reject it, and the clock is untouched.
+    const clockBefore = (await timers(table.room)).find((r) => r.kind === 'turn');
+    await table.act(offClock, 'fold');
+
+    const after = await table.game();
+    expect(after!.players[offClock].isActive).toBe(true);
+    expect(after!.actionOn).toBe(dealt.actionOn);
+    expect((await timers(table.room)).find((r) => r.kind === 'turn')!.due_at).toBe(
+      clockBefore!.due_at,
+    );
   });
 });
 

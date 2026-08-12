@@ -518,4 +518,61 @@ describe('awardPotDirectly', () => {
     expect(game.pot).toBe(200);
     expect(game.players[0].stack).toBe(1000);
   });
+
+  // Everyone folding or timing out on the same hand leaves nobody to win it.
+  // The hand still has to end, or the pot sits in the middle and the auto-deal
+  // — which only fires from stage 5 — never runs.
+  describe('when nobody is left to claim the pot', () => {
+    /** Two seats that both put chips in and then both folded. */
+    const voidedHand = (): Poker => {
+      const game = makeGame(2);
+      game.stage = 1;
+      game.pot = 30;
+      game.actionsRemaining = 0;
+      game.players[0].stack = 990;
+      game.players[0].contributed = 10;
+      game.players[0].isActive = false;
+      game.players[1].stack = 980;
+      game.players[1].contributed = 20;
+      game.players[1].isActive = false;
+      return game;
+    };
+
+    it('ends the hand at showdown with an empty pot', () => {
+      const result = awardPotDirectly(voidedHand());
+
+      expect(result.stage).toBe(5);
+      expect(result.pot).toBe(0);
+      expect(result.winner).toEqual([]);
+      expect(result.timerDeadline).toBeNull();
+      expect(result.actionsRemaining).toBe(0);
+    });
+
+    it('refunds each seat exactly what it put in', () => {
+      const result = awardPotDirectly(voidedHand());
+
+      expect(result.players[0].stack).toBe(1000);
+      expect(result.players[1].stack).toBe(1000);
+      expect(result.players.every((p) => p.contributed === 0)).toBe(true);
+    });
+
+    it('preserves chip conservation', () => {
+      const game = voidedHand();
+      const initial = totalChips(game);
+
+      expect(totalChips(awardPotDirectly(game))).toBe(initial);
+    });
+
+    it('splits chips the per-hand ledger never saw rather than losing them', () => {
+      const game = voidedHand();
+      game.pot = 130; // 100 more in the middle than `contributed` accounts for
+      const initial = totalChips(game);
+
+      const result = awardPotDirectly(game);
+      expect(result.pot).toBe(0);
+      expect(totalChips(result)).toBe(initial);
+      expect(result.players[0].stack).toBe(1050);
+      expect(result.players[1].stack).toBe(1050);
+    });
+  });
 });

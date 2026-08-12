@@ -24,14 +24,31 @@ const AI_REBUY_STACK = 1000;
 // Action processing
 // ──────────────────────────────────────────────────────────────────────────────
 
+/**
+ * Whether `playerIndex` may act on `game` right now. Returning `null` from
+ * `processGameAction` has to mean "nothing happened": the Durable Object reads
+ * a rejection as its cue to leave every timer exactly as it found them, so a
+ * bad action must never get far enough to change state.
+ */
+const canAct = (game: Poker, playerIndex: number): boolean => {
+  if (game.stage < 1 || game.stage > 4) return false;
+  if (playerIndex !== game.actionOn) return false;
+  const player = game.players[playerIndex];
+  return player !== undefined && player.isActive && !player.isAllIn;
+};
+
 export const processGameAction = (game: Poker, action: GameAction): Poker | null => {
   const { type, playerIndex, bet } = action;
 
   if (type === 'advance') {
-    // Only allow manual advance at stage 0 (start first hand) or stage 5+
-    if (game.stage > 0 && game.stage < 5) return null;
+    // Manual advance deals the first hand of a table sitting at stage 0. From
+    // stage 5 the scheduled auto-deal owns the transition, and letting a client
+    // race it resets the table to stage 0 while that deal is still pending.
+    if (game.stage !== 0) return null;
     return advanceGameStage(game);
   }
+
+  if (!canAct(game, playerIndex)) return null;
 
   let result: Poker | null = null;
 
@@ -107,11 +124,16 @@ export const resolveActionResult = (result: Poker): ActionOutcome => {
   const activePlayers = result.players.filter((p) => p.isActive);
   const playersWhoCanAct = activePlayers.filter((p) => !p.isAllIn);
 
+  // Checked before `actionsRemaining`: once nobody is left to contest the pot
+  // the hand is over, whatever the action count says. Deferring to the count
+  // put the last seat standing back on a 30s clock, and a second timeout there
+  // folded the table down to nobody active — a pot with no winner.
+  if (activePlayers.length <= 1) return { kind: 'awardDirect', game: awardPotDirectly(result) };
+
   if (result.actionsRemaining > 0 && playersWhoCanAct.length > 0) {
     return { kind: 'continue', game: result };
   }
 
-  if (activePlayers.length <= 1) return { kind: 'awardDirect', game: awardPotDirectly(result) };
   if (playersWhoCanAct.length <= 1) return { kind: 'runOut', game: runOutBoard(result) };
   return { kind: 'advance', game: advanceGameStage(result) };
 };

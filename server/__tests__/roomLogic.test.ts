@@ -6,6 +6,7 @@ import {
   resolveActionResult,
   runOutBoard,
   foldAndAdvance,
+  processGameAction,
   TURN_DURATION_MS,
   AI_MIN_DELAY_MS,
   AI_MAX_DELAY_MS,
@@ -95,6 +96,80 @@ describe('resolveActionResult', () => {
     expect(outcome.kind).toBe('advance');
     expect(outcome.game.stage).toBe(2);
     expect(outcome.game.tableCards).toHaveLength(3);
+  });
+
+  it('ends the hand the moment one seat is left, even with actions outstanding', () => {
+    // Heads-up, the seat on the clock folded: the survivor has the pot, so
+    // putting them back on a 30s clock only invites a second timeout — the
+    // route by which a table used to end a hand with nobody active at all.
+    const game = dealtGame();
+    game.players[1].isActive = false;
+    game.actionsRemaining = 1;
+
+    const outcome = resolveActionResult(game);
+    expect(outcome.kind).toBe('awardDirect');
+    expect(outcome.game.stage).toBe(5);
+    expect(outcome.game.winner).toEqual([0]);
+    expect(outcome.game.pot).toBe(0);
+  });
+
+  it('still concludes the hand when no seat is left at all', () => {
+    const game = dealtGame();
+    for (const player of game.players) player.isActive = false;
+    game.actionsRemaining = 0;
+
+    const outcome = resolveActionResult(game);
+    expect(outcome.kind).toBe('awardDirect');
+    // Stage 5 is what the auto-deal keys off; anything else strands the table.
+    expect(outcome.game.stage).toBe(5);
+    expect(outcome.game.pot).toBe(0);
+    expect(outcome.game.winner).toEqual([]);
+  });
+});
+
+describe('processGameAction', () => {
+  const otherSeat = (game: Poker) => (game.actionOn + 1) % game.players.length;
+
+  it('accepts an action from the seat on the clock', () => {
+    const game = dealtGame(3);
+    expect(processGameAction(game, { type: 'call', playerIndex: game.actionOn })).not.toBeNull();
+  });
+
+  it('refuses an action for a seat that is not on the clock', () => {
+    const game = dealtGame(3);
+    expect(processGameAction(game, { type: 'fold', playerIndex: otherSeat(game) })).toBeNull();
+  });
+
+  it('refuses a betting action outside a betting round', () => {
+    const game = dealtGame();
+    game.stage = 5;
+    expect(processGameAction(game, { type: 'fold', playerIndex: game.actionOn })).toBeNull();
+  });
+
+  it('refuses an action from a seat that has already folded', () => {
+    const game = dealtGame(3);
+    game.players[game.actionOn].isActive = false;
+    expect(processGameAction(game, { type: 'call', playerIndex: game.actionOn })).toBeNull();
+  });
+
+  it('refuses an under-minimum raise', () => {
+    const game = dealtGame(3);
+    const underMin = game.currentBet + 1; // above the bet, below the min re-raise
+    expect(processGameAction(game, { type: 'raise', playerIndex: game.actionOn, bet: underMin }))
+      .toBeNull();
+  });
+
+  it('deals the first hand on a manual advance between hands', () => {
+    const result = processGameAction(makeGame(), { type: 'advance', playerIndex: -1 });
+    expect(result?.stage).toBe(1);
+  });
+
+  it('refuses a manual advance once the auto-deal owns the transition', () => {
+    // Stage 5 is the 4-second showdown pause. The scheduled deal is what moves
+    // the table on from there; a manual advance would race it.
+    const game = dealtGame();
+    game.stage = 5;
+    expect(processGameAction(game, { type: 'advance', playerIndex: -1 })).toBeNull();
   });
 });
 
