@@ -101,7 +101,7 @@ export const foldAndAdvance = (game: Poker, playerIndex: number): Poker => {
 export type ActionOutcome =
   /** Betting continues — start the next seat's clock. */
   | { kind: 'continue'; game: Poker }
-  /** Everyone folded — pot awarded, hand over. */
+  /** At most one seat left — pot awarded, or voided if none is left, hand over. */
   | { kind: 'awardDirect'; game: Poker }
   /** Remaining players are all-in — board dealt to showdown, hand over. */
   | { kind: 'runOut'; game: Poker }

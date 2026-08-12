@@ -52,7 +52,10 @@ interface SocketState {
   clientId: string;
   playerIndex: number;
   name: string;
-  /** Last accepted gameAction, for the anti-spam cooldown. */
+  /**
+   * Last gameAction *received*, for the anti-spam cooldown — charged before
+   * validation, so a rejected action is rate-limited like any other.
+   */
   lastActionAt: number;
 }
 
