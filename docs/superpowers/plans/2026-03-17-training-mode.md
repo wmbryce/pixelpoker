@@ -1,5 +1,7 @@
 # Training Mode Implementation Plan
 
+> **Historical record, not current guidance:** this document describes the pre-Cloudflare Express + Socket.IO architecture and is kept for history only.
+
 > **For agentic workers:** REQUIRED: Use superpowers:subagent-driven-development (if subagents available) or superpowers:executing-plans to implement this plan. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Build a structured lesson system where users play scripted poker scenarios to learn advanced concepts, with per-street scoring and detailed debriefs.
