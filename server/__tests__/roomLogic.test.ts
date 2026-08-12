@@ -158,6 +158,9 @@ describe('resolveDealtHand', () => {
     expect(outcome.kind).toBe('act');
     expect(outcome.game.stage).toBe(1);
     expect(outcome.game.tableCards).toHaveLength(0);
+    // And it is that seat holding the clock, not the one already all-in.
+    expect(outcome.game.players[outcome.game.actionOn].isActive).toBe(true);
+    expect(outcome.game.players[outcome.game.actionOn].isAllIn).toBe(false);
   });
 
   it('runs the board out when the blinds left nobody able to act', () => {

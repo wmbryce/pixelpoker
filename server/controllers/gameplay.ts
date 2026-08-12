@@ -92,6 +92,22 @@ const dealCommunityCards = (game: Poker): Poker => {
 // Blinds
 // ──────────────────────────────────────────────────────────────────────────────
 
+/**
+ * First seat after `from` that can actually be put on the clock — active and
+ * not already all-in — or `null` when the hand has nobody left to act. The
+ * caller leaves `actionOn` alone in that case: a hand where no seat can act is
+ * run out to showdown rather than clocked.
+ */
+const firstToActAfter = (game: Poker, from: number): number | null => {
+  const n = game.players.length;
+  for (let i = 1; i <= n; i++) {
+    const idx = (from + i) % n;
+    const player = game.players[idx];
+    if (player.isActive && !player.isAllIn) return idx;
+  }
+  return null;
+};
+
 const postBlinds = (game: Poker): void => {
   const n = game.players.length;
   const activePlayers = game.players.filter((p) => p.isActive);
@@ -131,7 +147,8 @@ const postBlinds = (game: Poker): void => {
   game.currentBet = game.bigBlind;
 
   // UTG = first active non-all-in player after BB
-  game.actionOn = nthActiveAfterDealer(3);
+  const utg = firstToActAfter(game, bbIndex);
+  if (utg !== null) game.actionOn = utg;
 
   // All non-all-in players must act pre-flop (including blinds who can raise)
   game.actionsRemaining = game.players.filter((p) => p.isActive && !p.isAllIn).length;
@@ -393,13 +410,8 @@ export const advanceGameStage = (game: Poker): Poker => {
     next.actionsRemaining = next.players.filter((p) => p.isActive && !p.isAllIn).length;
 
     // First active non-all-in player left of the dealer
-    const n = next.players.length;
-    let firstToAct = (next.dealer + 1) % n;
-    for (let i = 0; i < n; i++) {
-      if (next.players[firstToAct].isActive && !next.players[firstToAct].isAllIn) break;
-      firstToAct = (firstToAct + 1) % n;
-    }
-    next.actionOn = firstToAct;
+    const firstToAct = firstToActAfter(next, next.dealer);
+    if (firstToAct !== null) next.actionOn = firstToAct;
   }
 
   return next;

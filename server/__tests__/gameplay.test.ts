@@ -161,6 +161,34 @@ describe('postBlinds (via pre-flop deal)', () => {
     expect(next.actionOn).toBe(0);
   });
 
+  it('skips a busted seat the dealer button has rotated onto', () => {
+    // dealer=2 and busted, so SB=0, BB=1 and the seat after the BB is the
+    // dealer itself. Clocking it would put the table on a 30s timer nobody can
+    // answer: the auto-fold declines to fold an inactive seat, and every other
+    // route out of stage 1 is closed.
+    const game = makeGame(3);
+    game.dealer = 2;
+    game.players[2].stack = 0;
+    game.players[2].isActive = false;
+
+    const next = advanceGameStage(game);
+    expect(next.actionOn).toBe(0);
+    expect(next.players[next.actionOn].isActive).toBe(true);
+  });
+
+  it('skips a seat the blind itself put all-in', () => {
+    // Heads-up, dealer=1: the 150-chip seat is SB and all-in on the 200 blind,
+    // so the action belongs to the seat that can still act.
+    const game = makeGame(2, 200, 400);
+    game.dealer = 1;
+    game.players[0].stack = 150;
+
+    const next = advanceGameStage(game);
+    expect(next.players[0].isAllIn).toBe(true);
+    expect(next.actionOn).toBe(1);
+    expect(next.players[next.actionOn].isAllIn).toBe(false);
+  });
+
   it('uses custom blind values from the game state', () => {
     const game = makeGame(2, 25, 50); // dealer=0, SB=1, BB=0 (wraps)
     const next = advanceGameStage(game);

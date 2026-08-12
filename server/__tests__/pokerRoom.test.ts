@@ -706,6 +706,65 @@ describe('PokerRoom — the table always has a way forward', () => {
     expect(after.tableCards).toHaveLength(0);
     expect(after.timerDeadline).not.toBeNull();
     expect((await timers(table.room)).some((r) => r.kind === 'turn')).toBe(true);
+    // Whose clock it is, not merely that one exists: seat 0 is all-in on the
+    // small blind, so the deep seat is the only one with a decision to make.
+    expect(after.actionOn).toBe(1);
+    expect(after.players[after.actionOn].isAllIn).toBe(false);
+  });
+
+  it('does not put a seat its own blind sent all-in on the clock', async () => {
+    const table = await tableAwaitingDealWithStacks([150, 5_000]);
+
+    expect(await runDurableObjectAlarm(stubFor(table.room))).toBe(true);
+    await TestClient.settle(150);
+
+    const dealt = (await table.game())!;
+    expect(dealt.players[0].isAllIn).toBe(true);
+    expect(dealt.actionOn).toBe(1);
+
+    // Clocking the all-in seat would auto-fold it 30s later, forfeiting equity
+    // it was entitled to take to showdown.
+    expect(await runDurableObjectAlarm(stubFor(table.room))).toBe(true);
+    await TestClient.settle(150);
+
+    const after = (await table.game())!;
+    expect(after.players[0].isActive).toBe(true);
+    expect(after.players[0].lastAction).not.toBe('FOLD');
+    expect(after.stage).toBe(5);
+  });
+
+  it('does not strand the table when the dealer rotates onto a busted seat', async () => {
+    const table = await Table.open(['ALICE', 'BOB', 'CARL']);
+    const dealt = await table.deal();
+    await table.act(dealt.actionOn, 'fold');
+    await table.act((await table.game())!.actionOn, 'fold');
+    await table.waitForStoredStage(5);
+
+    // CARL busts and does not rebuy, and the button lands on that seat next hand.
+    await writeStoredGame(table.room, (game) => {
+      game.dealer = 1;
+      game.players[0].stack = 1_000;
+      game.players[1].stack = 1_000;
+      game.players[2].stack = 0;
+    });
+
+    expect(await runDurableObjectAlarm(stubFor(table.room))).toBe(true);
+    const next = await table.waitForStoredStage(1);
+
+    expect(next.dealer).toBe(2);
+    expect(next.players[2].isActive).toBe(false);
+    // The seat after the big blind is the busted button, which cannot answer a
+    // clock: the auto-fold declines to fold an inactive seat and the alarm dies
+    // with it, leaving stage 1 with no timer and no legal action.
+    expect(next.actionOn).toBe(0);
+    expect(next.players[next.actionOn].isActive).toBe(true);
+
+    expect(await runDurableObjectAlarm(stubFor(table.room))).toBe(true);
+    await TestClient.settle(150);
+
+    expect((await timers(table.room)).length).toBeGreaterThan(0);
+    expect(await alarmAt(table.room)).not.toBeNull();
+    expect((await table.game())!.stage).toBe(5);
   });
 
   it('does not deal a seat that left the table back into the next hand', async () => {
