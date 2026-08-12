@@ -10,6 +10,7 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
  */
 export class TestClient {
   private readonly messages: Envelope[] = [];
+  private readonly raw: string[] = [];
   private readonly consumed = new Set<number>();
 
   private constructor(private readonly ws: WebSocket) {}
@@ -25,6 +26,7 @@ export class TestClient {
     const client = new TestClient(ws);
     ws.addEventListener('message', (event: MessageEvent) => {
       if (typeof event.data !== 'string') return;
+      client.raw.push(event.data);
       const envelope = decode(event.data);
       if (envelope) client.messages.push(envelope);
     });
@@ -34,6 +36,22 @@ export class TestClient {
 
   emit(event: string, data?: unknown): void {
     this.ws.send(encode(event, data));
+  }
+
+  /** Send a non-envelope frame, as the heartbeat does. */
+  emitRaw(frame: string): void {
+    this.ws.send(frame);
+  }
+
+  /** Resolve once `frame` has arrived verbatim, outside the envelope stream. */
+  async waitForRaw(frame: string, timeoutMs = 3_000): Promise<void> {
+    const deadline = Date.now() + timeoutMs;
+    while (!this.raw.includes(frame)) {
+      if (Date.now() > deadline) {
+        throw new Error(`timed out waiting for raw frame "${frame}"; received: [${this.raw}]`);
+      }
+      await sleep(5);
+    }
   }
 
   /** Resolve with the next unconsumed payload for `event`. */

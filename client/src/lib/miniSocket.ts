@@ -1,10 +1,12 @@
-import { decode, encode } from '@pixelpoker/shared/src/protocol';
+import { decode, encode, WS_PING, WS_PONG } from '@pixelpoker/shared/src/protocol';
 import { wsUrl } from '../config';
 
 type Handler = (payload: never) => void;
 
 const MIN_BACKOFF_MS = 500;
 const MAX_BACKOFF_MS = 8_000;
+const PING_INTERVAL_MS = 25_000;
+const PONG_TIMEOUT_MS = 10_000;
 
 /**
  * A raw-WebSocket client with the slice of the Socket.IO API this app used:
@@ -16,6 +18,12 @@ const MAX_BACKOFF_MS = 8_000;
  * while the socket is down are queued and flushed once it opens. Reconnecting
  * only restores the transport — restoring the player's seat is the app's job,
  * which it does by emitting `rejoinRoom` from a `connect` handler.
+ *
+ * The heartbeat is the other half Socket.IO provided. A NAT or proxy that drops
+ * an idle connection leaves `readyState` at OPEN, so nothing would ever fire
+ * `onclose` and the tab would look connected while sending into a dead socket.
+ * A ping that goes unanswered therefore tears the socket down here and hands
+ * over to the same backoff a real close would.
  */
 export class MiniSocket {
   private ws: WebSocket | null = null;
@@ -25,6 +33,8 @@ export class MiniSocket {
   private wantOpen = false;
   private attempts = 0;
   private retryTimer: ReturnType<typeof setTimeout> | null = null;
+  private pingTimer: ReturnType<typeof setInterval> | null = null;
+  private pongTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(private readonly path: string) {}
 
@@ -59,6 +69,7 @@ export class MiniSocket {
   disconnect(): void {
     this.wantOpen = false;
     this.clearRetry();
+    this.stopHeartbeat();
     this.queue = [];
     const ws = this.ws;
     this.ws = null;
@@ -106,11 +117,15 @@ export class MiniSocket {
       const queued = this.queue;
       this.queue = [];
       for (const frame of queued) socket.send(frame);
+      this.startHeartbeat(socket);
       this.dispatch('connect', undefined);
     };
 
     socket.onmessage = (event: MessageEvent) => {
       if (typeof event.data !== 'string') return;
+      // Any frame proves the connection is alive, not just the pong.
+      this.clearPongTimeout();
+      if (event.data === WS_PONG) return;
       const envelope = decode(event.data);
       if (!envelope) return;
       this.dispatch(envelope.e, envelope.d);
@@ -119,12 +134,63 @@ export class MiniSocket {
     socket.onclose = () => {
       if (this.ws !== socket) return;
       this.ws = null;
+      this.stopHeartbeat();
       this.dispatch('disconnect', undefined);
       if (this.wantOpen) this.scheduleRetry();
     };
 
     // `onerror` is always followed by `onclose`, which owns the retry.
     socket.onerror = () => {};
+  }
+
+  private startHeartbeat(socket: WebSocket): void {
+    this.stopHeartbeat();
+    this.pingTimer = setInterval(() => {
+      if (this.ws !== socket || socket.readyState !== WebSocket.OPEN) {
+        this.stopHeartbeat();
+        return;
+      }
+      socket.send(WS_PING);
+      if (this.pongTimer === null) {
+        this.pongTimer = setTimeout(() => {
+          this.pongTimer = null;
+          this.dropDeadSocket(socket);
+        }, PONG_TIMEOUT_MS);
+      }
+    }, PING_INTERVAL_MS);
+  }
+
+  private stopHeartbeat(): void {
+    if (this.pingTimer !== null) {
+      clearInterval(this.pingTimer);
+      this.pingTimer = null;
+    }
+    this.clearPongTimeout();
+  }
+
+  private clearPongTimeout(): void {
+    if (this.pongTimer !== null) {
+      clearTimeout(this.pongTimer);
+      this.pongTimer = null;
+    }
+  }
+
+  /**
+   * A half-open socket may never fire `onclose`, so the teardown is driven from
+   * here: detaching first makes the socket's own handlers no-ops, so this is the
+   * only path that dispatches `disconnect` and re-arms the backoff.
+   */
+  private dropDeadSocket(socket: WebSocket): void {
+    if (this.ws !== socket) return;
+    this.ws = null;
+    this.stopHeartbeat();
+    try {
+      socket.close(4000, 'heartbeat timeout');
+    } catch {
+      // Already closing; the retry below is what matters.
+    }
+    this.dispatch('disconnect', undefined);
+    if (this.wantOpen) this.scheduleRetry();
   }
 
   private scheduleRetry(): void {

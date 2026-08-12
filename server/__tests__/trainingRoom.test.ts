@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { env, evictDurableObject } from 'cloudflare:test';
-import { WS_TRAINING_PATH } from '@pixelpoker/shared/src/protocol';
+import { WS_PING, WS_PONG, WS_TRAINING_PATH } from '@pixelpoker/shared/src/protocol';
 import type {
   DebriefData,
   LessonCompleteData,
@@ -31,6 +31,15 @@ async function startLesson(client: TestClient, lessonId: string): Promise<Intro>
 }
 
 describe('TrainingRoom', () => {
+  it('answers the heartbeat while a lesson sits idle', async () => {
+    const client = await openTraining();
+    await startLesson(client, 'position-ranges');
+
+    client.emitRaw(WS_PING);
+
+    await client.waitForRaw(WS_PONG);
+  });
+
   it('runs a full lesson: start → five hands → lessonComplete', async () => {
     const client = await openTraining();
     const intro = await startLesson(client, 'position-ranges');

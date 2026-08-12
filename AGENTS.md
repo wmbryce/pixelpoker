@@ -36,8 +36,12 @@ until one of those has run.
   why the rules are testable without workerd.
 - **Known pre-existing stalls** (carried over from the Express version, not
   introduced by the port): acting during the 4-second showdown window cancels
-  the auto-deal and strands the table, and if every player times out on the same
-  hand the pot is never awarded. Both are reachable in real play.
+  the auto-deal and strands the table; if every player times out on the same
+  hand the pot is never awarded; and `onGameAction` clears the turn/ai/deal
+  timers *before* `processGameAction` validates, so a rejected action (an
+  under-minimum raise, or an action for a seat that is not on the clock, which
+  is never checked) deletes the alarm and the table waits for a voluntary
+  action. All three are reachable in real play.
 
 ## Maintaining this file
 

@@ -80,6 +80,12 @@ function App() {
 
     socket.on('error', ({ message }) => {
       if (message === 'SESSION_NOT_FOUND' || message === 'ROOM_NOT_FOUND' || message === 'ROOM_FULL') {
+        // The seat is gone, so the session must go with it: a stale
+        // sessionRef/hasConnectedRef would make the next join re-emit
+        // `rejoinRoom` for a room this tab had only just joined.
+        sessionRef.current = null;
+        hasConnectedRef.current = false;
+        socket.disconnect();
         clearRoomFromUrl();
         setIsAttemptingRejoin(false);
         setUsername(null);

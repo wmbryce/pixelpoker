@@ -1,5 +1,5 @@
 import { DurableObject } from 'cloudflare:workers';
-import { decode, encode } from '@pixelpoker/shared/src/protocol';
+import { decode, encode, WS_PING, WS_PONG } from '@pixelpoker/shared/src/protocol';
 import { TrainingSession, loadLessons, type TrainingSnapshot } from '../controllers/training';
 
 /**
@@ -17,6 +17,10 @@ export class TrainingRoom extends DurableObject<Env> {
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
+    // A lesson is mostly idle time, which is exactly when a connection gets
+    // dropped silently. The runtime answers the heartbeat without waking this
+    // object, so hibernation is unaffected.
+    ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair(WS_PING, WS_PONG));
     ctx.blockConcurrencyWhile(async () => this.migrate());
   }
 

@@ -43,3 +43,13 @@ export function isPublicRoomCode(code: string): boolean {
 /** Paths the Worker routes WebSocket upgrades on. */
 export const WS_GAME_PATH = '/ws';
 export const WS_TRAINING_PATH = '/ws/training';
+
+/**
+ * Heartbeat frames, replacing Socket.IO's pingInterval/pingTimeout. They are
+ * deliberately not envelopes: the Durable Objects answer them through
+ * `setWebSocketAutoResponse`, which replies without waking the object, so a
+ * silently dropped connection is detected without costing duration or
+ * preventing hibernation.
+ */
+export const WS_PING = 'ping';
+export const WS_PONG = 'pong';

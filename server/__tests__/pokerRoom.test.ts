@@ -1,9 +1,15 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { env, runInDurableObject, runDurableObjectAlarm, evictDurableObject } from 'cloudflare:test';
-import { WS_GAME_PATH } from '@pixelpoker/shared/src/protocol';
+import {
+  QUICK_ROOM_PREFIX,
+  WS_GAME_PATH,
+  WS_PING,
+  WS_PONG,
+} from '@pixelpoker/shared/src/protocol';
 import type { ActionType, ChatMessage, Poker } from '../controllers/types';
 import { TURN_DURATION_MS, AUTO_DEAL_DELAY_MS } from '../controllers/roomLogic';
 import type { PokerRoom } from '../durable/PokerRoom';
+import { LOBBY_SINGLETON, type Lobby } from '../durable/Lobby';
 import { TestClient } from './helpers/wsClient';
 
 interface RoomJoined {
@@ -57,6 +63,25 @@ async function writeStoredGame(room: string, mutate: (game: Poker) => void): Pro
   await evictDurableObject(stubFor(room), { webSockets: 'hibernate' });
 }
 
+interface LobbyRow extends Record<string, SqlStorageValue> {
+  code: string;
+  active_players: number;
+}
+
+/** What the Lobby currently believes about public tables. */
+const lobbyRooms = (): Promise<LobbyRow[]> =>
+  runInDurableObject(env.LOBBY.getByName(LOBBY_SINGLETON), async (_instance: Lobby, state) =>
+    state.storage.sql
+      .exec<LobbyRow>('SELECT code, active_players FROM public_rooms ORDER BY code')
+      .toArray(),
+  );
+
+/** The lobby is a singleton, so its directory outlives an individual test. */
+const clearLobby = (): Promise<void> =>
+  runInDurableObject(env.LOBBY.getByName(LOBBY_SINGLETON), async (_instance: Lobby, state) => {
+    state.storage.sql.exec('DELETE FROM public_rooms');
+  });
+
 const alarmAt = (room: string) =>
   runInDurableObject(stubFor(room), async (_instance: PokerRoom, state) => state.storage.getAlarm());
 
@@ -81,8 +106,12 @@ class Table {
     readonly clients: TestClient[],
   ) {}
 
-  static async open(names: string[], opts: { aiCount?: number } = {}): Promise<Table> {
-    const room = nextRoom();
+  static async open(
+    names: string[],
+    opts: { aiCount?: number; room?: string } = {},
+  ): Promise<Table> {
+    const { room: fixedRoom, ...joinOpts } = opts;
+    const room = fixedRoom ?? nextRoom();
     const clients: TestClient[] = [];
 
     for (const [index, username] of names.entries()) {
@@ -91,7 +120,7 @@ class Table {
         username,
         room,
         clientId: `cid-${username}`,
-        ...(index === 0 ? opts : {}),
+        ...(index === 0 ? joinOpts : {}),
       });
       const joined = await client.waitFor<RoomJoined>('roomJoined');
       expect(joined.playerIndex).toBe(index);
@@ -145,6 +174,8 @@ class Table {
   }
 }
 
+beforeEach(clearLobby);
+
 describe('PokerRoom — seating', () => {
   it('seats two players at the same table and shows both to each other', async () => {
     const table = await Table.open(['ALICE', 'BOB']);
@@ -174,6 +205,32 @@ describe('PokerRoom — seating', () => {
     const seenByB = await waitForGame(table.clients[1], (g) => g.stage === 1);
     const dealtToB = seenByB.players.filter((p) => p.cards.length > 0);
     expect(dealtToB.map((p) => p.name)).toEqual(['BOB']);
+  });
+
+  it('rejects a joinRoom whose payload names a different table than the URL', async () => {
+    const table = await Table.open(['ALICE']);
+
+    const impostor = await TestClient.connect(WS_GAME_PATH, { room: table.room });
+    impostor.emit('joinRoom', {
+      username: 'MALLORY',
+      room: `${QUICK_ROOM_PREFIX}9999`,
+      clientId: 'cid-mallory',
+    });
+
+    const error = await impostor.waitFor<{ message: string }>('error');
+    expect(error.message).toBe('ROOM_NOT_FOUND');
+
+    // No seat taken here, and the asserted code never reaches the lobby.
+    expect((await table.game())!.players).toHaveLength(1);
+    expect(await lobbyRooms()).toEqual([]);
+  });
+
+  it('answers the heartbeat without waking the object', async () => {
+    const table = await Table.open(['ALICE']);
+
+    table.clients[0].emitRaw(WS_PING);
+
+    await table.clients[0].waitForRaw(WS_PONG);
   });
 
   it('relays chat to everyone at the table', async () => {
@@ -434,6 +491,37 @@ describe('PokerRoom — persistence and reconnection', () => {
     expect(after!.players[leaverIndex].hasLeft).toBe(true);
     expect(after!.players[leaverIndex].isActive).toBe(false);
     expect(after!.players[leaverIndex].stack).toBe(0);
+  });
+});
+
+describe('PokerRoom — lobby occupancy', () => {
+  let quickCounter = 0;
+  const nextQuickRoom = () => `${QUICK_ROOM_PREFIX}${9000 + ++quickCounter}`;
+
+  it('reports its seat count under the code the connection routes to', async () => {
+    const room = nextQuickRoom();
+    await Table.open(['ALICE', 'BOB'], { room });
+
+    expect(await lobbyRooms()).toEqual([{ code: room, active_players: 2 }]);
+  });
+
+  it('drops the table from the lobby once every seat has busted out', async () => {
+    const room = nextQuickRoom();
+    const table = await Table.open(['ALICE', 'BOB'], { room });
+    await table.deal();
+    expect((await table.foldToShowdown()).stage).toBe(5);
+    expect(await lobbyRooms()).toEqual([{ code: room, active_players: 2 }]);
+
+    // Nobody leaves — they simply run out of chips, which is the case the
+    // join/leave reports alone never saw.
+    await writeStoredGame(table.room, (game) => {
+      for (const player of game.players) player.stack = 0;
+    });
+
+    expect(await runDurableObjectAlarm(stubFor(table.room))).toBe(true);
+    await TestClient.settle(200);
+
+    expect(await lobbyRooms()).toEqual([]);
   });
 });
 

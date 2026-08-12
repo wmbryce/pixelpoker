@@ -1,5 +1,11 @@
 import { DurableObject } from 'cloudflare:workers';
-import { decode, encode, isPublicRoomCode } from '@pixelpoker/shared/src/protocol';
+import {
+  decode,
+  encode,
+  isPublicRoomCode,
+  WS_PING,
+  WS_PONG,
+} from '@pixelpoker/shared/src/protocol';
 import type { ChatMessage, GameAction, Poker } from '../controllers/types';
 import { SMALL_BLIND, BIG_BLIND } from '../controllers/types';
 import { initializeGame, createPlayer, createAIPlayer } from '../controllers/gameplay';
@@ -69,6 +75,9 @@ export class PokerRoom extends DurableObject<Env> {
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
     this.scheduler = new AlarmScheduler<TimerKind>(ctx);
+    // Answered by the runtime itself, so a heartbeat neither wakes the object
+    // nor blocks hibernation.
+    ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair(WS_PING, WS_PONG));
     ctx.blockConcurrencyWhile(async () => this.migrate());
   }
 
@@ -177,6 +186,17 @@ export class PokerRoom extends DurableObject<Env> {
     if (request.headers.get('Upgrade') !== 'websocket') {
       return new Response('expected websocket upgrade', { status: 426 });
     }
+
+    // The room code in the URL is what selected this object, so it — not a
+    // client-supplied payload — is this table's identity. Recorded on the first
+    // connection and never rewritten, so the code the Lobby is told about is
+    // always the code quickplay would route back to.
+    const room = new URL(request.url).searchParams.get('room');
+    if (!room) return new Response('missing room', { status: 400 });
+
+    const known = this.code;
+    if (known === null) this.writeMeta('code', room);
+    else if (known !== room) return new Response('room mismatch', { status: 409 });
 
     const pair = new WebSocketPair();
     const [client, server] = Object.values(pair);
@@ -292,6 +312,13 @@ export class PokerRoom extends DurableObject<Env> {
   private async onJoinRoom(ws: WebSocket, data: JoinRoomPayload): Promise<void> {
     if (!data?.clientId || !data.room || !data.username) return;
 
+    // A payload naming a different table than the connection routes to would
+    // otherwise seat the player here under someone else's code.
+    if (data.room !== this.code) {
+      this.send(ws, 'error', { message: 'ROOM_NOT_FOUND' });
+      return;
+    }
+
     let game = this.loadGame();
     if (!game) {
       game = initializeGame(data.smallBlind ?? SMALL_BLIND, data.bigBlind ?? BIG_BLIND);
@@ -318,7 +345,6 @@ export class PokerRoom extends DurableObject<Env> {
       }
     }
 
-    this.writeMeta('code', data.room);
     this.persist(game);
     this.ctx.storage.sql.exec(
       `INSERT INTO clients (client_id, player_index, name) VALUES (?, ?, ?)
@@ -534,6 +560,9 @@ export class PokerRoom extends DurableObject<Env> {
     this.scheduler.add('deal', now + AUTO_DEAL_DELAY_MS, seq);
 
     await this.scheduler.sync();
+    // Seats bust out during play, not only when someone clicks Leave, so the
+    // end of every hand is where the Lobby learns a table has emptied.
+    await this.reportOccupancy();
   }
 
   private queueAIChat(game: Poker, playerIndex: number, trigger: ChatTrigger): void {
@@ -616,6 +645,7 @@ export class PokerRoom extends DurableObject<Env> {
     if (paused) {
       this.persist(next);
       this.broadcastGame();
+      await this.reportOccupancy();
       return;
     }
 

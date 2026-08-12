@@ -19,6 +19,15 @@ export const LOBBY_SINGLETON = 'global';
  */
 const EMPTY_ROOM_TTL_MS = 10 * 60_000;
 
+/**
+ * Occupancy is reported by the table, so a table that stops reporting — every
+ * tab closed without leaving, then folded down to nothing — would otherwise
+ * keep its last count forever and keep attracting quickplay clicks. Any row
+ * this stale is dropped regardless of its count; a live table re-reports at the
+ * end of every hand, and a rediscovered one is re-added on the next join.
+ */
+const STALE_ROOM_TTL_MS = 30 * 60_000;
+
 interface RoomRow extends Record<string, SqlStorageValue> {
   code: string;
   active_players: number;
@@ -113,9 +122,12 @@ export class Lobby extends DurableObject<Env> {
   }
 
   private prune(): void {
+    const now = Date.now();
     this.ctx.storage.sql.exec(
-      'DELETE FROM public_rooms WHERE active_players = 0 AND updated_at < ?',
-      Date.now() - EMPTY_ROOM_TTL_MS,
+      `DELETE FROM public_rooms
+       WHERE (active_players = 0 AND updated_at < ?) OR updated_at < ?`,
+      now - EMPTY_ROOM_TTL_MS,
+      now - STALE_ROOM_TTL_MS,
     );
   }
 }

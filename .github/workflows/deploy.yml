@@ -17,6 +17,18 @@ jobs:
       - run: bun install --frozen-lockfile
       - run: bun --filter server test
 
+      # An unset or misspelled variable would expand to an empty --var and
+      # deploy a Worker whose CORS allowlist is empty, breaking quickplay and
+      # the room-exists check with no failing step.
+      - name: Require CLIENT_ORIGIN
+        env:
+          CLIENT_ORIGIN: ${{ vars.CLIENT_ORIGIN }}
+        run: |
+          if [ -z "$CLIENT_ORIGIN" ]; then
+            echo "::error::CLIENT_ORIGIN repository variable is not set. Set it to the Pages origin (see docs/cloudflare-deploy.md) before deploying."
+            exit 1
+          fi
+
       - name: Deploy Worker
         working-directory: server
         env:
