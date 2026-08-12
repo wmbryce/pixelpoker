@@ -574,5 +574,33 @@ describe('awardPotDirectly', () => {
       expect(result.players[0].stack).toBe(1050);
       expect(result.players[1].stack).toBe(1050);
     });
+
+    /** How `onLeaveRoom` retires a seat that walks away off the clock. */
+    const departed = (game: Poker, index: number): Poker => {
+      game.players[index].isActive = false;
+      game.players[index].hasLeft = true;
+      game.players[index].stack = 0;
+      return game;
+    };
+
+    it('does not hand chips back to a seat that left the table', () => {
+      const game = departed(voidedHand(), 1);
+      const initial = totalChips(game);
+
+      const result = awardPotDirectly(game);
+      expect(result.players[1].stack).toBe(0);
+      expect(result.players[1].contributed).toBe(0);
+      // The departed seat's 20 goes to the seat still at the table, not nowhere.
+      expect(result.players[0].stack).toBe(1020);
+      expect(result.pot).toBe(0);
+      expect(totalChips(result)).toBe(initial);
+    });
+
+    it('keeps a departed seat out of the next hand', () => {
+      const voided = awardPotDirectly(departed(voidedHand(), 1));
+
+      const nextHand = advanceGameStage(voided); // 5 → 0 (resetGame)
+      expect(nextHand.players[1].isActive).toBe(false);
+    });
   });
 });

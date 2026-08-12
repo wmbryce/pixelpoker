@@ -270,20 +270,26 @@ const determineWinner = (game: Poker): void => {
 const refundContributions = (game: Poker): void => {
   let remaining = game.pot;
 
-  for (const player of game.players) {
+  // A seat that left the table already forfeited its chips on the way out, and
+  // it must stay gone: `resetGame` deals in on `stack > 0`, so handing one its
+  // contribution back revives a seat the client no longer draws.
+  const seats = game.players.filter((p) => !p.hasLeft);
+
+  for (const player of seats) {
     // `min` keeps chips conserved if the pot and the per-hand ledger disagree.
     const refund = Math.min(player.contributed, remaining);
     player.stack += refund;
-    player.contributed = 0;
     remaining -= refund;
   }
+  for (const player of game.players) player.contributed = 0;
 
-  // Chips the ledger never saw split evenly — the same fallback
-  // `determineWinner` applies to an untracked pot at showdown.
-  if (remaining > 0) {
-    const share = Math.floor(remaining / game.players.length);
-    for (const player of game.players) player.stack += share;
-    game.players[0].stack += remaining - share * game.players.length;
+  // What is left — a departed seat's contribution, plus anything the ledger
+  // never saw — splits evenly, the same fallback `determineWinner` applies to
+  // an untracked pot at showdown.
+  if (remaining > 0 && seats.length > 0) {
+    const share = Math.floor(remaining / seats.length);
+    for (const player of seats) player.stack += share;
+    seats[0].stack += remaining - share * seats.length;
   }
 
   game.pot = 0;
@@ -340,7 +346,8 @@ const resetGame = (game: Poker): Poker => {
   game.dealer = (game.dealer + 1) % game.players.length;
   for (const player of game.players) {
     player.cards = [];
-    player.isActive = player.stack > 0; // busted players sit out until they rebuy
+    // Busted players sit out until they rebuy; a departed seat never comes back.
+    player.isActive = player.stack > 0 && !player.hasLeft;
     player.isAllIn = false;
     player.contributed = 0;
     player.lastBet = 0;

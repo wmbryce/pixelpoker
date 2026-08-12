@@ -656,6 +656,93 @@ describe('PokerRoom — the table always has a way forward', () => {
     const after = await table.game();
     expect(after!.players[onClock].lastAction).toBe('FOLD');
   });
+
+  /** Sit the table at showdown, then rewrite the stacks the next deal will use. */
+  async function tableAwaitingDealWithStacks(stacks: number[]): Promise<Table> {
+    const table = await Table.open(['ALICE', 'BOB']);
+    await table.deal();
+    expect((await table.foldToShowdown()).stage).toBe(5);
+
+    await writeStoredGame(table.room, (game) => {
+      game.smallBlind = 200;
+      game.bigBlind = 400;
+      stacks.forEach((stack, i) => {
+        game.players[i].stack = stack;
+      });
+    });
+    return table;
+  }
+
+  it('runs the auto-dealt hand out when the blinds leave nobody able to act', async () => {
+    // Both seats are shorter than the blind behind them, so `postBlinds` puts
+    // every one of them all-in: there is no seat to put on the clock.
+    const table = await tableAwaitingDealWithStacks([100, 150]);
+    const chipsBefore = totalChips((await table.game())!);
+
+    expect(await runDurableObjectAlarm(stubFor(table.room))).toBe(true);
+    await TestClient.settle(150);
+
+    const after = (await table.game())!;
+    expect(after.stage).toBe(5);
+    expect(after.tableCards).toHaveLength(5);
+    expect(after.pot).toBe(0);
+    expect(totalChips(after)).toBe(chipsBefore);
+
+    // Stage 1 with no alarm would be the end of the table: `advance` is refused
+    // once a hand is under way, so nothing could move it on.
+    expect((await timers(table.room)).some((r) => r.kind === 'deal')).toBe(true);
+    expect(await alarmAt(table.room)).not.toBeNull();
+  });
+
+  it('still gives the one seat that can act its turn on an auto-dealt hand', async () => {
+    // One seat all-in on its blind, one deep enough to have a call to make.
+    const table = await tableAwaitingDealWithStacks([150, 5_000]);
+
+    expect(await runDurableObjectAlarm(stubFor(table.room))).toBe(true);
+    await TestClient.settle(150);
+
+    const after = (await table.game())!;
+    expect(after.stage).toBe(1);
+    expect(after.tableCards).toHaveLength(0);
+    expect(after.timerDeadline).not.toBeNull();
+    expect((await timers(table.room)).some((r) => r.kind === 'turn')).toBe(true);
+  });
+
+  it('does not deal a seat that left the table back into the next hand', async () => {
+    const table = await Table.open(['ALICE', 'BOB', 'CARL']);
+    const dealt = await table.deal();
+    const onClock = dealt.actionOn;
+    // The blinds, biggest contribution first — the departed seat needs chips in
+    // the middle for the refund to have anything to hand back.
+    const [departed, folded] = dealt.players
+      .map((_, i) => i)
+      .filter((i) => i !== onClock)
+      .sort((a, b) => dealt.players[b].contributed - dealt.players[a].contributed);
+    expect(dealt.players[departed].contributed).toBeGreaterThan(0);
+
+    await writeStoredGame(table.room, (game) => {
+      game.players[folded].isActive = false;
+      // Left while not on the clock: retired with its chips forfeit, but what
+      // it already put in is still in the middle.
+      game.players[departed].isActive = false;
+      game.players[departed].hasLeft = true;
+      game.players[departed].stack = 0;
+    });
+
+    // The last seat still in runs out of time, so nobody is left to win the pot.
+    expect(await runDurableObjectAlarm(stubFor(table.room))).toBe(true);
+    await TestClient.settle(150);
+
+    const voided = (await table.game())!;
+    expect(voided.stage).toBe(5);
+    expect(voided.pot).toBe(0);
+    expect(voided.players[departed].stack).toBe(0);
+
+    expect(await runDurableObjectAlarm(stubFor(table.room))).toBe(true);
+    const nextHand = await table.waitForStoredStage(1);
+    expect(nextHand.players[departed].isActive).toBe(false);
+    expect(nextHand.players[departed].stack).toBe(0);
+  });
 });
 
 describe('PokerRoom — an action must come from the seat that sent it', () => {

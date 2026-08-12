@@ -138,6 +138,25 @@ export const resolveActionResult = (result: Poker): ActionOutcome => {
   return { kind: 'advance', game: advanceGameStage(result) };
 };
 
+export type DealtHandOutcome =
+  /** At least one seat has a decision to make — put it on the clock. */
+  | { kind: 'act'; game: Poker }
+  /** Nobody can act — board dealt to showdown, hand over. */
+  | { kind: 'runOut'; game: Poker };
+
+/**
+ * What a freshly dealt hand needs next. Blinds can put every seat all-in at
+ * once (`postBlinds` caps a blind at the stack behind it), and such a hand has
+ * no clock to arm: it has to run out to showdown, because stage 5 is the only
+ * stage the auto-deal moves on from. One seat able to act is not that case —
+ * it still gets its turn, or it loses the chance to call the all-in.
+ */
+export const resolveDealtHand = (game: Poker): DealtHandOutcome => {
+  const anyoneCanAct = game.players.some((p) => p.isActive && !p.isAllIn);
+  if (anyoneCanAct) return { kind: 'act', game };
+  return { kind: 'runOut', game: runOutBoard(game) };
+};
+
 // ──────────────────────────────────────────────────────────────────────────────
 // Turn clock
 // ──────────────────────────────────────────────────────────────────────────────

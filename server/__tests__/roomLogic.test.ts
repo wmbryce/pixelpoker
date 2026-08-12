@@ -4,6 +4,7 @@ import {
   planTurn,
   prepareNextHand,
   resolveActionResult,
+  resolveDealtHand,
   runOutBoard,
   foldAndAdvance,
   processGameAction,
@@ -124,6 +125,53 @@ describe('resolveActionResult', () => {
     expect(outcome.game.stage).toBe(5);
     expect(outcome.game.pot).toBe(0);
     expect(outcome.game.winner).toEqual([]);
+  });
+});
+
+describe('resolveDealtHand', () => {
+  /** Blinds larger than the stacks behind them, so the deal itself puts seats all-in. */
+  const dealtOnOversizeBlinds = (stacks: number[]): Poker => {
+    const game = makeGame(stacks.length);
+    game.smallBlind = 200;
+    game.bigBlind = 400;
+    game.lastRaiseSize = 400;
+    stacks.forEach((stack, i) => {
+      game.players[i].stack = stack;
+    });
+    return advanceGameStage(game); // 0 → 1 (deals pre-flop, posts blinds)
+  };
+
+  it('leaves a hand alone while a seat still has a decision to make', () => {
+    const outcome = resolveDealtHand(dealtGame(3));
+
+    expect(outcome.kind).toBe('act');
+    expect(outcome.game.stage).toBe(1);
+    expect(outcome.game.tableCards).toHaveLength(0);
+  });
+
+  it('still gives the one seat that can act its turn rather than running out', () => {
+    // The short seat is all-in on the blind; the deep seat has a call to make.
+    const dealt = dealtOnOversizeBlinds([150, 5000]);
+    expect(dealt.players.filter((p) => p.isActive && !p.isAllIn)).toHaveLength(1);
+
+    const outcome = resolveDealtHand(dealt);
+    expect(outcome.kind).toBe('act');
+    expect(outcome.game.stage).toBe(1);
+    expect(outcome.game.tableCards).toHaveLength(0);
+  });
+
+  it('runs the board out when the blinds left nobody able to act', () => {
+    const dealt = dealtOnOversizeBlinds([100, 150]);
+    expect(dealt.players.some((p) => p.isActive && !p.isAllIn)).toBe(false);
+
+    const outcome = resolveDealtHand(dealt);
+    // Stage 5 or the auto-deal — which only fires from stage 5 — never runs, and
+    // there is no clock to arm and no manual advance once a hand is under way.
+    expect(outcome.kind).toBe('runOut');
+    expect(outcome.game.stage).toBe(5);
+    expect(outcome.game.tableCards).toHaveLength(5);
+    expect(outcome.game.pot).toBe(0);
+    expect(outcome.game.winner.length).toBeGreaterThan(0);
   });
 });
 

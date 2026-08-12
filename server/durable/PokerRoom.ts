@@ -27,6 +27,7 @@ import {
   prepareNextHand,
   processGameAction,
   resolveActionResult,
+  resolveDealtHand,
 } from '../controllers/roomLogic';
 import { AlarmScheduler, type ScheduledTimer } from './scheduler';
 import { LOBBY_SINGLETON } from './Lobby';
@@ -665,7 +666,16 @@ export class PokerRoom extends DurableObject<Env> {
       return;
     }
 
-    await this.armTurnClock(next);
+    // A hand nobody can act on has no clock to arm, and `advance` is refused
+    // once a hand is under way, so arming an empty clock would strand the table
+    // at stage 1 with the alarm deleted.
+    const dealt = resolveDealtHand(next);
+    if (dealt.kind === 'runOut') {
+      await this.concludeHand(dealt.game);
+      return;
+    }
+
+    await this.armTurnClock(dealt.game);
     this.broadcastGame();
   }
 
