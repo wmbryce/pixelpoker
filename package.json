@@ -7,9 +7,10 @@
   "scripts": {
     "dev": "concurrently \"bun --filter server dev\" \"bun --filter client dev\"",
     "build": "bun --filter client build",
-    "start": "bun --filter server start",
+    "deploy": "bun --filter server deploy",
     "lint": "eslint .",
     "format": "prettier --write \"**/*.{ts,tsx,json,md}\" --ignore-path .gitignore",
+    "typecheck": "bun --filter '*' typecheck",
     "test": "bun --filter server test"
   },
   "devDependencies": {

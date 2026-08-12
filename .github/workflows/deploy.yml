@@ -4,8 +4,10 @@ on:
   push:
     branches: [master]
 
+# The client is deployed by Cloudflare Pages' own Git integration; this workflow
+# only ships the Worker + Durable Objects. See docs/cloudflare-deploy.md.
 jobs:
-  test:
+  deploy-worker:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -15,18 +17,11 @@ jobs:
       - run: bun install --frozen-lockfile
       - run: bun --filter server test
 
-  deploy:
-    needs: test
-    runs-on: ubuntu-latest
-    steps:
-      - name: Deploy to EC2
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USER }}
-          key: ${{ secrets.EC2_SSH_KEY }}
-          script: |
-            cd ~/pixelpoker
-            git checkout -- bun.lock
-            git pull origin master
-            scripts/deploy.sh
+      - name: Deploy Worker
+        working-directory: server
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        # CLIENT_ORIGIN is passed explicitly so a deploy never reverts the
+        # Worker's allowed origin to the localhost value in wrangler.jsonc.
+        run: bunx wrangler deploy --var CLIENT_ORIGIN:"${{ vars.CLIENT_ORIGIN }}"

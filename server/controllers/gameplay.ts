@@ -1,11 +1,10 @@
 import { cloneDeep } from 'lodash';
+import pokersolver from 'pokersolver';
 import { generateDeck } from './deck';
 import type { CardType, Poker, PlayerType } from './types';
 import { SMALL_BLIND, BIG_BLIND } from './types';
 
-// pokersolver has no type definitions — import with require
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const Hand = require('pokersolver').Hand;
+const { Hand } = pokersolver;
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Factories

@@ -1,5 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import socket from './socket';
+import { CONFIG_ERROR } from './config';
+import ConfigErrorScreen from './Components/ConfigErrorScreen';
 import { useGameStore } from './store/gameStore';
 import GameContainer from './Components/GameContainer';
 import ChatContainer from './Components/ChatContainer';
@@ -28,6 +30,12 @@ function App() {
   const [isAttemptingRejoin, setIsAttemptingRejoin] = useState(false);
   const [showTraining, setShowTraining] = useState(false);
 
+  // Which seat this tab owns, so a dropped socket can claim it back. Raw
+  // WebSockets have no Socket.IO-style session, so reconnecting is only a fresh
+  // transport — `rejoinRoom` is what actually restores the player.
+  const sessionRef = useRef<{ clientId: string; room: string } | null>(null);
+  const hasConnectedRef = useRef(false);
+
   const setupRoom = (
     userId: string,
     roomId: string,
@@ -41,11 +49,25 @@ function App() {
     setRoom(roomId);
     savePlayerName(userId);
     setRoomInUrl(roomId);
-    socket.connect();
+    sessionRef.current = { clientId, room: roomId };
+    socket.connect({ room: roomId, clientId });
     socket.emit('joinRoom', { username: userId, room: roomId, clientId, smallBlind, bigBlind, aiCount });
   };
 
   useEffect(() => {
+    // Every open after the first is a reconnect: re-claim the seat. The first
+    // open already has a queued joinRoom/rejoinRoom behind it.
+    const onConnect = () => {
+      if (!hasConnectedRef.current) {
+        hasConnectedRef.current = true;
+        return;
+      }
+      const session = sessionRef.current;
+      if (session) socket.emit('rejoinRoom', session);
+    };
+
+    socket.on('connect', onConnect);
+
     socket.on('updateGame', (data) => {
       setGame(data);
     });
@@ -75,16 +97,22 @@ function App() {
       setIsAttemptingRejoin(true);
       setUsername(savedName);
       setRoom(urlRoom);
-      socket.connect();
+      sessionRef.current = { clientId, room: urlRoom };
+      socket.connect({ room: urlRoom, clientId });
       socket.emit('rejoinRoom', { clientId, room: urlRoom });
     }
 
     return () => {
+      socket.off('connect', onConnect);
       socket.off('updateGame');
       socket.off('roomJoined');
       socket.off('error');
     };
   }, [setGame, setMyPlayerIndex, setClientId, setUsername, setRoom]);
+
+  if (CONFIG_ERROR) {
+    return <ConfigErrorScreen message={CONFIG_ERROR} />;
+  }
 
   if (window.location.pathname !== '/') {
     return <NotFoundScreen />;
@@ -102,6 +130,9 @@ function App() {
 
   const leaveRoom = () => {
     socket.emit('leaveRoom');
+    sessionRef.current = null;
+    hasConnectedRef.current = false;
+    socket.disconnect();
     clearRoomFromUrl();
     setUsername(null);
     setRoom(null);

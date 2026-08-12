@@ -1,4 +1,4 @@
-import { describe, test, expect, beforeAll } from 'bun:test';
+import { describe, test, expect, beforeAll } from 'vitest';
 import { makeAIDecision } from '../controllers/ai';
 import { initializeGame, createAIPlayer } from '../controllers/gameplay';
 import { generateDeck } from '../controllers/deck';

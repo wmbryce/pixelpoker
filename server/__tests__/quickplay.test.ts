@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'bun:test';
-import { findQuickRoom } from '../controllers/quickplay';
+import { describe, it, expect } from 'vitest';
+import { findQuickRoom, countSeated, type PublicRoomSummary } from '../controllers/quickplay';
 import { initializeGame, createPlayer } from '../controllers/gameplay';
 import type { Poker } from '../controllers/types';
 
@@ -13,58 +13,15 @@ const makeRoomWithPlayers = (count: number): Poker => {
   return game;
 };
 
-describe('findQuickRoom', () => {
-  it('returns null when there are no public rooms', () => {
-    const publicCodes = new Set<string>();
-    const allRooms = new Map<string, Poker>();
-    expect(findQuickRoom(publicCodes, allRooms, MAX_PLAYERS)).toBeNull();
-  });
+/** Rooms as the Lobby stores them: a code and the seat count the table reported. */
+const summary = (code: string, activePlayers: number): PublicRoomSummary => ({
+  code,
+  activePlayers,
+});
 
-  it('returns the only available room', () => {
-    const allRooms = new Map<string, Poker>();
-    allRooms.set('QUICK-1', makeRoomWithPlayers(2));
-    const publicCodes = new Set(['QUICK-1']);
-
-    expect(findQuickRoom(publicCodes, allRooms, MAX_PLAYERS)).toBe('QUICK-1');
-  });
-
-  it('prefers the room with the most players (to fill tables)', () => {
-    const allRooms = new Map<string, Poker>();
-    allRooms.set('QUICK-A', makeRoomWithPlayers(1));
-    allRooms.set('QUICK-B', makeRoomWithPlayers(4));
-    allRooms.set('QUICK-C', makeRoomWithPlayers(2));
-    const publicCodes = new Set(['QUICK-A', 'QUICK-B', 'QUICK-C']);
-
-    expect(findQuickRoom(publicCodes, allRooms, MAX_PLAYERS)).toBe('QUICK-B');
-  });
-
-  it('skips rooms that are full', () => {
-    const allRooms = new Map<string, Poker>();
-    allRooms.set('FULL', makeRoomWithPlayers(MAX_PLAYERS));
-    allRooms.set('OPEN', makeRoomWithPlayers(3));
-    const publicCodes = new Set(['FULL', 'OPEN']);
-
-    expect(findQuickRoom(publicCodes, allRooms, MAX_PLAYERS)).toBe('OPEN');
-  });
-
-  it('returns null when all public rooms are full', () => {
-    const allRooms = new Map<string, Poker>();
-    allRooms.set('FULL-1', makeRoomWithPlayers(MAX_PLAYERS));
-    allRooms.set('FULL-2', makeRoomWithPlayers(MAX_PLAYERS));
-    const publicCodes = new Set(['FULL-1', 'FULL-2']);
-
-    expect(findQuickRoom(publicCodes, allRooms, MAX_PLAYERS)).toBeNull();
-  });
-
-  it('cleans up stale public room codes that no longer exist', () => {
-    const allRooms = new Map<string, Poker>();
-    allRooms.set('REAL', makeRoomWithPlayers(2));
-    const publicCodes = new Set(['GHOST', 'REAL']);
-
-    findQuickRoom(publicCodes, allRooms, MAX_PLAYERS);
-
-    expect(publicCodes.has('GHOST')).toBe(false);
-    expect(publicCodes.has('REAL')).toBe(true);
+describe('countSeated', () => {
+  it('counts every seated player', () => {
+    expect(countSeated(makeRoomWithPlayers(4))).toBe(4);
   });
 
   it('does not count inactive busted players toward room capacity', () => {
@@ -74,10 +31,51 @@ describe('findQuickRoom', () => {
       game.players[i].isActive = false;
       game.players[i].stack = 0;
     }
-    const allRooms = new Map<string, Poker>();
-    allRooms.set('BUSTED', game);
-    const publicCodes = new Set(['BUSTED']);
+    expect(countSeated(game)).toBe(3);
+  });
 
-    expect(findQuickRoom(publicCodes, allRooms, MAX_PLAYERS)).toBe('BUSTED');
+  it('still counts busted players who can rebuy', () => {
+    const game = makeRoomWithPlayers(2);
+    game.players[0].isActive = false;
+    game.players[0].stack = 500;
+    expect(countSeated(game)).toBe(2);
+  });
+});
+
+describe('findQuickRoom', () => {
+  it('returns null when there are no public rooms', () => {
+    expect(findQuickRoom([], MAX_PLAYERS)).toBeNull();
+  });
+
+  it('returns the only available room', () => {
+    expect(findQuickRoom([summary('QUICK-1', 2)], MAX_PLAYERS)).toBe('QUICK-1');
+  });
+
+  it('prefers the room with the most players (to fill tables)', () => {
+    const rooms = [summary('QUICK-A', 1), summary('QUICK-B', 4), summary('QUICK-C', 2)];
+    expect(findQuickRoom(rooms, MAX_PLAYERS)).toBe('QUICK-B');
+  });
+
+  it('skips rooms that are full', () => {
+    const rooms = [summary('FULL', MAX_PLAYERS), summary('OPEN', 3)];
+    expect(findQuickRoom(rooms, MAX_PLAYERS)).toBe('OPEN');
+  });
+
+  it('returns null when all public rooms are full', () => {
+    const rooms = [summary('FULL-1', MAX_PLAYERS), summary('FULL-2', MAX_PLAYERS)];
+    expect(findQuickRoom(rooms, MAX_PLAYERS)).toBeNull();
+  });
+
+  it('returns null when every known room is empty, so a fresh one is created', () => {
+    expect(findQuickRoom([summary('RESERVED', 0)], MAX_PLAYERS)).toBeNull();
+  });
+
+  it('does not count inactive busted players toward room capacity', () => {
+    const game = makeRoomWithPlayers(MAX_PLAYERS);
+    for (let i = 0; i < 3; i++) {
+      game.players[i].isActive = false;
+      game.players[i].stack = 0;
+    }
+    expect(findQuickRoom([summary('BUSTED', countSeated(game))], MAX_PLAYERS)).toBe('BUSTED');
   });
 });

@@ -1,5 +1,6 @@
 import { useEffect, useCallback, useState } from 'react';
-import socket from '../../socket';
+import { trainingSocket as socket } from '../../socket';
+import { getOrCreateClientId } from '../../lib/clientSession';
 import { useTrainingStore } from '../../store/trainingStore';
 import LessonIntro from './LessonIntro';
 import TrainingTable from './TrainingTable';
@@ -31,8 +32,9 @@ export default function TrainingView({ onBack }: TrainingViewProps) {
   useEffect(() => {
     loadProgress();
 
-    // Ensure socket is connected
-    if (!socket.connected) socket.connect();
+    // Training runs in its own Durable Object, keyed by client id, so it needs
+    // its own connection rather than sharing the room socket.
+    socket.connect({ client: getOrCreateClientId() });
 
     const onConnect = () => setConnected(true);
     const onDisconnect = () => setConnected(false);
@@ -99,6 +101,7 @@ export default function TrainingView({ onBack }: TrainingViewProps) {
 
   const handleExit = useCallback(() => {
     socket.emit('training:exit');
+    socket.disconnect();
     reset();
   }, [reset]);
 

@@ -1,0 +1,24 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - run: bun install --frozen-lockfile
+      # Generates server/worker-configuration.d.ts, which typecheck needs and
+      # which is not committed.
+      - run: bun --filter server types
+      - run: bun run lint
+      - run: bun --filter client typecheck
+      - run: bun --filter server typecheck
+      - run: bun --filter server test
+      - run: bun run build

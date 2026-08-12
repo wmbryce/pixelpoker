@@ -94,3 +94,9 @@ Thumbs.db
 
 # Superpowers plugin
 .superpowers/
+# Cloudflare
+server/worker-configuration.d.ts
+.wrangler/
+
+# firstmate scratch (task toolchain + screenshots)
+.fm/
