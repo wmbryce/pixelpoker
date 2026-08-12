@@ -1,5 +1,5 @@
-import { readFileSync, readdirSync } from 'fs';
-import { join } from 'path';
+import positionRanges from '../data/lessons/position-ranges.json';
+import potOdds from '../data/lessons/pot-odds.json';
 import type { CardType, Poker } from '@pixelpoker/shared';
 import type {
   Lesson, LessonMeta, Scenario, TrainingGameState,
@@ -21,11 +21,12 @@ export function toCardType(card: string): CardType {
 
 // ── Lesson Loading ──
 
-const LESSONS_DIR = join(import.meta.dirname!, '..', 'data', 'lessons');
+// Workers have no filesystem, so lessons are bundled at build time instead of
+// being read from disk. Order matches the old alphabetical `readdirSync`.
+const LESSONS: Lesson[] = [positionRanges as Lesson, potOdds as Lesson];
 
 export function loadLessons(): Lesson[] {
-  const files = readdirSync(LESSONS_DIR).filter(f => f.endsWith('.json'));
-  return files.map(f => JSON.parse(readFileSync(join(LESSONS_DIR, f), 'utf-8')));
+  return LESSONS;
 }
 
 function toLessonMeta(lesson: Lesson): LessonMeta {
@@ -64,8 +65,29 @@ type ActionResult =
 
 // ── Training Session ──
 
+/**
+ * Everything needed to rebuild a session after its Durable Object is evicted.
+ * Scenarios are stored by id and re-resolved from the bundled lesson catalogue
+ * rather than copied, so the snapshot stays small.
+ */
+export interface TrainingSnapshot {
+  lessonId: string | null;
+  scenarioIds: string[];
+  handIndex: number;
+  currentStage: number;
+  streetResults: StreetResult[];
+  handResults: DebriefData[];
+  pot: number;
+  currentBet: number;
+  playerStack: number;
+  playerLastBet: number;
+  lastRaiseSize: number;
+  opponentStates: OpponentState[];
+}
+
 export class TrainingSession {
   private lessons: Lesson[];
+  private lessonId: string | null = null;
   private selectedScenarios: Scenario[] = [];
   private handIndex = 0;
   private currentScenario: Scenario | null = null;
@@ -89,6 +111,7 @@ export class TrainingSession {
     const lesson = this.lessons.find(l => l.id === lessonId);
     if (!lesson) throw new Error(`Lesson not found: ${lessonId}`);
 
+    this.lessonId = lessonId;
     this.handIndex = -1;
     this.handResults = [];
 
@@ -216,6 +239,46 @@ export class TrainingSession {
 
   getScenarioIds(): string[] {
     return this.selectedScenarios.map(s => s.id);
+  }
+
+  snapshot(): TrainingSnapshot {
+    return {
+      lessonId: this.lessonId,
+      scenarioIds: this.getScenarioIds(),
+      handIndex: this.handIndex,
+      currentStage: this.currentStage,
+      streetResults: this.streetResults,
+      handResults: this.handResults,
+      pot: this.pot,
+      currentBet: this.currentBet,
+      playerStack: this.playerStack,
+      playerLastBet: this.playerLastBet,
+      lastRaiseSize: this.lastRaiseSize,
+      opponentStates: this.opponentStates,
+    };
+  }
+
+  static restore(lessons: Lesson[], snapshot: TrainingSnapshot): TrainingSession {
+    const session = new TrainingSession(lessons);
+    const lesson = lessons.find(l => l.id === snapshot.lessonId);
+    const byId = new Map((lesson?.scenarios ?? []).map(s => [s.id, s]));
+
+    session.lessonId = snapshot.lessonId;
+    session.selectedScenarios = snapshot.scenarioIds
+      .map(id => byId.get(id))
+      .filter((s): s is Scenario => s !== undefined);
+    session.handIndex = snapshot.handIndex;
+    session.currentScenario = session.selectedScenarios[snapshot.handIndex] ?? null;
+    session.currentStage = snapshot.currentStage;
+    session.streetResults = snapshot.streetResults;
+    session.handResults = snapshot.handResults;
+    session.pot = snapshot.pot;
+    session.currentBet = snapshot.currentBet;
+    session.playerStack = snapshot.playerStack;
+    session.playerLastBet = snapshot.playerLastBet;
+    session.lastRaiseSize = snapshot.lastRaiseSize;
+    session.opponentStates = snapshot.opponentStates;
+    return session;
   }
 
   private simulateOpponents(scenario: Scenario): void {

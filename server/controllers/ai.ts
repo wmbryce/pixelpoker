@@ -1,8 +1,7 @@
+import pokersolver from 'pokersolver';
 import type { Poker, GameAction, CardType } from './types';
 
-// pokersolver has no type definitions
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const Hand = require('pokersolver').Hand;
+const { Hand } = pokersolver;
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Personas
@@ -130,29 +129,32 @@ const PERSONAS: AIPersona[] = [
   },
 ];
 
-/** Map from AI player ID to their assigned persona */
-const personaMap = new Map<string, AIPersona>();
-
-/** Assign a persona to an AI player, ensuring no duplicates in the same game */
-export function assignPersona(playerId: string, usedNames: Set<string>): AIPersona {
+/**
+ * Personas used to live in a module-level Map keyed by player id. A Durable
+ * Object can be evicted at any time and module state does not survive that, so
+ * the persona is now recovered from the player's name — which is set from the
+ * persona when the AI seat is created and is already persisted with the game.
+ */
+export function assignPersona(usedNames: Set<string>): AIPersona {
   const available = PERSONAS.filter((p) => !usedNames.has(p.name));
-  const persona = available.length > 0
-    ? available[Math.floor(Math.random() * available.length)]
-    : PERSONAS[Math.floor(Math.random() * PERSONAS.length)];
-
-  personaMap.set(playerId, persona);
-  return persona;
+  const pool = available.length > 0 ? available : PERSONAS;
+  return pool[Math.floor(Math.random() * pool.length)];
 }
 
-export function getPersona(playerId: string): AIPersona | undefined {
-  return personaMap.get(playerId);
+export function getPersonaByName(name: string): AIPersona | undefined {
+  return PERSONAS.find((p) => p.name === name);
+}
+
+/** Persona for a seat, or undefined for humans and unnamed bots. */
+export function personaForPlayer(player: { name: string; isAI?: boolean }): AIPersona | undefined {
+  return player.isAI ? getPersonaByName(player.name) : undefined;
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Trash talk
 // ──────────────────────────────────────────────────────────────────────────────
 
-type ChatTrigger = keyof AIPersona['chat'];
+export type ChatTrigger = keyof AIPersona['chat'];
 
 function pickLine(lines: string[]): string {
   return lines[Math.floor(Math.random() * lines.length)];
@@ -172,9 +174,10 @@ export function getAIChat(
   game: Poker,
   playerIndex: number,
   trigger: ChatTrigger,
+  overridePersona?: AIPersona,
 ): AIChat | null {
   const player = game.players[playerIndex];
-  const persona = personaMap.get(player.id);
+  const persona = overridePersona ?? personaForPlayer(player);
   if (!persona) return null;
 
   // Roll against chat frequency
@@ -281,7 +284,7 @@ export interface AIDecisionResult {
 
 export const makeAIDecision = (game: Poker, playerIndex: number, overridePersona?: AIPersona): AIDecisionResult => {
   const player = game.players[playerIndex];
-  const persona = overridePersona ?? personaMap.get(player.id);
+  const persona = overridePersona ?? personaForPlayer(player);
 
   // Persona-specific knobs (fallback to defaults if no persona)
   const tightness = persona?.tightness ?? 0.35;

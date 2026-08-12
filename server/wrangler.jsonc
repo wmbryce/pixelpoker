@@ -1,0 +1,39 @@
+{
+  "$schema": "../node_modules/wrangler/config-schema.json",
+  "name": "pixelpoker-server",
+  "main": "worker.ts",
+  "compatibility_date": "2026-08-01",
+  // lodash probes for Node's `util` when deciding how to clone buffers.
+  "compatibility_flags": ["nodejs_compat"],
+
+  "observability": {
+    "enabled": true
+  },
+
+  // Matches client/.env.development, so `bun run dev` wires the two together.
+  "dev": {
+    "port": 8000
+  },
+
+  "vars": {
+    // Origins allowed to call this Worker, comma-separated. This value is
+    // correct for `wrangler dev`; deploys override it with the Pages origin
+    // (see docs/cloudflare-deploy.md).
+    "CLIENT_ORIGIN": "http://localhost:3000"
+  },
+
+  "durable_objects": {
+    "bindings": [
+      { "name": "POKER_ROOM", "class_name": "PokerRoom" },
+      { "name": "TRAINING_ROOM", "class_name": "TrainingRoom" },
+      { "name": "LOBBY", "class_name": "Lobby" }
+    ]
+  },
+
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["PokerRoom", "TrainingRoom", "Lobby"]
+    }
+  ]
+}

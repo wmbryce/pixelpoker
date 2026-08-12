@@ -5,6 +5,7 @@
   "types": "./src/types.ts",
   "exports": {
     ".": "./src/types.ts",
-    "./src/trainingTypes": "./src/trainingTypes.ts"
+    "./src/trainingTypes": "./src/trainingTypes.ts",
+    "./src/protocol": "./src/protocol.ts"
   }
 }

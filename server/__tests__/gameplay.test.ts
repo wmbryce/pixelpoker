@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'bun:test';
+import { describe, it, expect } from 'vitest';
 import { initializeGame, createPlayer, advanceGameStage, awardPotDirectly } from '../controllers/gameplay';
 import { raise, call, nextPlayer } from '../controllers/actions';
 import type { Poker } from '../controllers/types';

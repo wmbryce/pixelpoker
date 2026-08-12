@@ -75,7 +75,7 @@ export const SMALL_BLIND = 10;
 export const BIG_BLIND = 20;
 
 // ──────────────────────────────────────────────────────────────────────────────
-// Socket.IO event types
+// Event payload types for the WebSocket protocol (shared/src/protocol.ts)
 // ──────────────────────────────────────────────────────────────────────────────
 
 export interface ChatMessage {

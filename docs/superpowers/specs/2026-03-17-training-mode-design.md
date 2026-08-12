@@ -1,5 +1,7 @@
 # Training Mode — Design Spec
 
+> **Historical record, not current guidance:** this document describes the pre-Cloudflare Express + Socket.IO architecture and is kept for history only.
+
 ## Overview
 
 A structured lesson system where users play through scripted poker scenarios to learn advanced concepts. Each lesson introduces a concept, deals 5 hands from a deep pool of pre-authored scenarios, and provides a detailed debrief after each hand with a scorecard and expandable analysis.

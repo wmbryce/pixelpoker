@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'bun:test';
+import { describe, it, expect } from 'vitest';
 import { raise, call, fold, nextPlayer } from '../controllers/actions';
 import { initializeGame, createPlayer } from '../controllers/gameplay';
 
