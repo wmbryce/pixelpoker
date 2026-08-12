@@ -663,10 +663,14 @@ export class PokerRoom extends DurableObject<Env> {
     if (!code || !isPublicRoomCode(code)) return;
 
     const game = this.loadGame();
-    await this.env.LOBBY.getByName(LOBBY_SINGLETON).reportRoom(
-      code,
-      game ? countSeated(game) : 0,
-    );
+    try {
+      await this.env.LOBBY.getByName(LOBBY_SINGLETON).reportRoom(
+        code,
+        game ? countSeated(game) : 0,
+      );
+    } catch (err) {
+      console.error(`[room ${code}] lobby occupancy report failed:`, err);
+    }
   }
 }
 

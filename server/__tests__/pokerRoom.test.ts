@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { env, runInDurableObject, runDurableObjectAlarm, evictDurableObject } from 'cloudflare:test';
 import {
   QUICK_ROOM_PREFIX,
@@ -522,6 +522,38 @@ describe('PokerRoom — lobby occupancy', () => {
     await TestClient.settle(200);
 
     expect(await lobbyRooms()).toEqual([]);
+  });
+
+  it('concludes the hand even when the lobby is unreachable', async () => {
+    const room = nextQuickRoom();
+    const table = await Table.open(['ALICE', 'BOB'], { room });
+    await table.deal();
+
+    // Occupancy is advisory — a lobby that rejects must not abort the table.
+    await runInDurableObject(stubFor(room), async (instance: PokerRoom) => {
+      const patched = instance as unknown as { env: Env };
+      patched.env = {
+        ...patched.env,
+        LOBBY: {
+          getByName: () => ({
+            reportRoom: () => Promise.reject(new Error('lobby unreachable')),
+          }),
+        },
+      } as unknown as Env;
+    });
+
+    const failures = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      expect((await table.foldToShowdown()).stage).toBe(5);
+      expect(failures).toHaveBeenCalled();
+    } finally {
+      failures.mockRestore();
+    }
+
+    // The socket survived, so the table is still playable.
+    table.clients[0].emit('chat', 'still here');
+    const heard = await table.clients[1].waitFor<ChatMessage>('message');
+    expect(heard).toMatchObject({ username: 'ALICE', text: 'still here' });
   });
 });
 
