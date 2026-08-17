@@ -630,5 +630,74 @@ describe('awardPotDirectly', () => {
       const nextHand = advanceGameStage(voided); // 5 → 0 (resetGame)
       expect(nextHand.players[1].isActive).toBe(false);
     });
+
+    /**
+     * Seat 0 holds the big blind and is the last seat with a stake in the hand.
+     * Seat 1 posted the small blind and then walked away off the clock. Seat 2
+     * busted earlier and was dealt out, so it never put a chip in.
+     */
+    const strandedHand = (): Poker => {
+      const game = makeGame(3);
+      game.stage = 1;
+      game.pot = 30;
+      game.actionsRemaining = 0;
+      game.players[0].stack = 980;
+      game.players[0].contributed = 20;
+      game.players[1].stack = 0;
+      game.players[1].contributed = 10;
+      game.players[1].isActive = false;
+      game.players[1].hasLeft = true;
+      game.players[2].stack = 0;
+      game.players[2].isActive = false;
+      return game;
+    };
+
+    it('gives nothing to a seat that sat the hand out', () => {
+      const game = strandedHand();
+      game.players[0].isActive = false; // its clock expired too
+      const initial = totalChips(game);
+
+      const result = awardPotDirectly(game);
+      expect(result.players[2].stack).toBe(0);
+      expect(result.pot).toBe(0);
+      expect(totalChips(result)).toBe(initial);
+    });
+
+    it('does not deal a seat that sat the hand out back in', () => {
+      const game = strandedHand();
+      game.players[0].isActive = false;
+
+      const nextHand = advanceGameStage(awardPotDirectly(game)); // 5 → 0 (resetGame)
+      expect(nextHand.players[2].isActive).toBe(false);
+    });
+
+    it('pays the last contributor the same whether it folds or times out', () => {
+      // Seat 0 still active: the pot is awarded to it outright.
+      const awarded = awardPotDirectly(strandedHand());
+
+      // Seat 0 timed out instead, so no seat is left and the hand is voided.
+      const timedOut = strandedHand();
+      timedOut.players[0].isActive = false;
+      const voided = awardPotDirectly(timedOut);
+
+      expect(awarded.players[0].stack).toBe(1010);
+      expect(voided.players[0].stack).toBe(awarded.players[0].stack);
+    });
+
+    it('splits a pot no seat is on record as building across the table', () => {
+      const game = makeGame(2);
+      game.stage = 1;
+      game.pot = 50;
+      game.actionsRemaining = 0;
+      game.players[0].isActive = false;
+      game.players[1].isActive = false;
+      const initial = totalChips(game);
+
+      const result = awardPotDirectly(game);
+      expect(result.pot).toBe(0);
+      expect(totalChips(result)).toBe(initial);
+      expect(result.players[0].stack).toBe(1025);
+      expect(result.players[1].stack).toBe(1025);
+    });
   });
 });

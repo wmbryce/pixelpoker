@@ -292,7 +292,14 @@ const refundContributions = (game: Poker): void => {
   // contribution back revives a seat the client no longer draws.
   const seats = game.players.filter((p) => !p.hasLeft);
 
-  for (const player of seats) {
+  // Only the seats that actually staked this hand share what is left over. A
+  // seat sitting the hand out never had a claim on the middle, and crediting it
+  // both revives it — `resetGame` deals in on `stack > 0` — and shortchanges the
+  // seats still in, which would end the hand with less than the same seats win
+  // when the hand instead reaches `awardPotDirectly` with one of them active.
+  const contributors = seats.filter((p) => p.contributed > 0);
+
+  for (const player of contributors) {
     // `min` keeps chips conserved if the pot and the per-hand ledger disagree.
     const refund = Math.min(player.contributed, remaining);
     player.stack += refund;
@@ -302,11 +309,14 @@ const refundContributions = (game: Poker): void => {
 
   // What is left — a departed seat's contribution, plus anything the ledger
   // never saw — splits evenly, the same fallback `determineWinner` applies to
-  // an untracked pot at showdown.
-  if (remaining > 0 && seats.length > 0) {
-    const share = Math.floor(remaining / seats.length);
-    for (const player of seats) player.stack += share;
-    seats[0].stack += remaining - share * seats.length;
+  // an untracked pot at showdown. With no contributor on record there is no
+  // better claim than the table's, so every seat still there splits it rather
+  // than the chips vanishing.
+  const heirs = contributors.length > 0 ? contributors : seats;
+  if (remaining > 0 && heirs.length > 0) {
+    const share = Math.floor(remaining / heirs.length);
+    for (const player of heirs) player.stack += share;
+    heirs[0].stack += remaining - share * heirs.length;
   }
 
   game.pot = 0;

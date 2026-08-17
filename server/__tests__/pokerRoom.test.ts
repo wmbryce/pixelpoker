@@ -829,6 +829,45 @@ describe('PokerRoom — the table always has a way forward', () => {
     expect(nextHand.players[departed].isActive).toBe(false);
     expect(nextHand.players[departed].stack).toBe(0);
   });
+
+  it('does not deal a busted seat back in on chips from a hand it sat out', async () => {
+    const table = await Table.open(['ALICE', 'BOB', 'CARL']);
+    await table.deal();
+
+    // ALICE holds the big blind and the clock; BOB left off the clock with its
+    // small blind still in the middle; CARL busted earlier and was dealt out.
+    await writeStoredGame(table.room, (game) => {
+      game.actionOn = 0;
+      game.pot = 30;
+      game.players[0].stack = 980;
+      game.players[0].contributed = 20;
+      game.players[0].isActive = true;
+      game.players[1].stack = 0;
+      game.players[1].contributed = 10;
+      game.players[1].isActive = false;
+      game.players[1].hasLeft = true;
+      game.players[2].stack = 0;
+      game.players[2].contributed = 0;
+      game.players[2].isActive = false;
+    });
+
+    // ALICE runs out of time, so nobody is left to win the pot.
+    expect(await runDurableObjectAlarm(stubFor(table.room))).toBe(true);
+    await TestClient.settle(150);
+
+    const voided = (await table.game())!;
+    expect(voided.stage).toBe(5);
+    expect(voided.pot).toBe(0);
+    expect(voided.players[2].stack).toBe(0);
+    // The whole pot goes to the only seat that staked it and is still there.
+    expect(voided.players[0].stack).toBe(1_010);
+    expect(totalChips(voided)).toBe(1_010);
+
+    expect(await runDurableObjectAlarm(stubFor(table.room))).toBe(true);
+    const nextHand = await table.waitForStoredStage(0);
+    expect(nextHand.players[2].isActive).toBe(false);
+    expect(nextHand.players[2].stack).toBe(0);
+  });
 });
 
 describe('PokerRoom — an action must come from the seat that sent it', () => {
