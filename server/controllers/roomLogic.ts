@@ -1,3 +1,4 @@
+import { cloneDeep } from 'lodash';
 import type { Poker, GameAction } from './types';
 import { advanceGameStage, awardPotDirectly } from './gameplay';
 import { raise, call, fold, nextPlayer } from './actions';
@@ -84,6 +85,27 @@ export const processGameAction = (game: Poker, action: GameAction): Poker | null
   }
 
   return result;
+};
+
+/**
+ * Close out a turn the seat on the clock never played — it ran out of time, or
+ * the rules turned its decision down.
+ *
+ * A seat that could have acted simply failed to, so it folds. A seat that could
+ * not act is only passed over: folding an all-in seat would strip it of a
+ * showdown it has already paid for, and folding one that has already folded
+ * would spend an action nobody owed. Either way the action moves on, because
+ * the alarm behind this turn is already gone.
+ */
+export const resolveUnplayedTurn = (game: Poker, playerIndex: number): Poker => {
+  const player = game.players[playerIndex];
+  if (player?.isActive && !player.isAllIn) return foldAndAdvance(game, playerIndex);
+
+  // `nextPlayer` only lands back on this seat when no other seat can act, and
+  // `resolveActionResult` ends such a hand rather than re-arming the clock.
+  const next = cloneDeep(game);
+  next.actionOn = nextPlayer(next, playerIndex);
+  return next;
 };
 
 /** Fold a seat that ran out of time (or walked away) and pass the action on. */

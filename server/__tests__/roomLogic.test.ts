@@ -7,6 +7,7 @@ import {
   resolveDealtHand,
   runOutBoard,
   foldAndAdvance,
+  resolveUnplayedTurn,
   processGameAction,
   TURN_DURATION_MS,
   AI_MIN_DELAY_MS,
@@ -245,6 +246,73 @@ describe('foldAndAdvance', () => {
     expect(result.players[pi].lastAction).toBe('FOLD');
     expect(result.actionsRemaining).toBe(before - 1);
     expect(result.actionOn).not.toBe(pi);
+  });
+});
+
+describe('resolveUnplayedTurn', () => {
+  it('folds a seat that could have acted and did not', () => {
+    const game = dealtGame(3);
+    const pi = game.actionOn;
+    const before = game.actionsRemaining;
+
+    const result = resolveUnplayedTurn(game, pi);
+
+    expect(result.players[pi].isActive).toBe(false);
+    expect(result.players[pi].lastAction).toBe('FOLD');
+    expect(result.actionsRemaining).toBe(before - 1);
+    expect(result.actionOn).not.toBe(pi);
+  });
+
+  it('passes over an all-in seat instead of folding it', () => {
+    // An all-in seat has already paid for its showdown; folding it here would
+    // strip it of a pot it is still entitled to win.
+    const game = dealtGame(3);
+    const pi = game.actionOn;
+    game.players[pi].isAllIn = true;
+    const before = game.actionsRemaining;
+
+    const result = resolveUnplayedTurn(game, pi);
+
+    expect(result.players[pi].isActive).toBe(true);
+    expect(result.players[pi].isAllIn).toBe(true);
+    expect(result.players[pi].lastAction).toBeNull();
+    expect(result.actionsRemaining).toBe(before);
+    expect(result.actionOn).not.toBe(pi);
+  });
+
+  it('passes over a seat that has already folded without spending an action', () => {
+    const game = dealtGame(3);
+    const pi = game.actionOn;
+    game.players[pi].isActive = false;
+    const before = game.actionsRemaining;
+
+    const result = resolveUnplayedTurn(game, pi);
+
+    expect(result.actionsRemaining).toBe(before);
+    expect(result.actionOn).not.toBe(pi);
+  });
+
+  it('leaves the action where it is when no other seat can act', () => {
+    // `nextPlayer` wraps back to the seat itself here; `resolveActionResult`
+    // is what ends such a hand, so this must not loop the clock back on.
+    const game = dealtGame(3);
+    const pi = game.actionOn;
+    for (const player of game.players) player.isAllIn = true;
+
+    const result = resolveUnplayedTurn(game, pi);
+
+    expect(result.actionOn).toBe(pi);
+    expect(resolveActionResult(result).kind).toBe('runOut');
+  });
+
+  it('does not mutate the game it was given', () => {
+    const game = dealtGame(3);
+    const pi = game.actionOn;
+    game.players[pi].isAllIn = true;
+
+    resolveUnplayedTurn(game, pi);
+
+    expect(game.actionOn).toBe(pi);
   });
 });
 

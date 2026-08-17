@@ -22,6 +22,7 @@ import {
   AUTO_DEAL_DELAY_MS,
   aiChatDelayMs,
   foldAndAdvance,
+  resolveUnplayedTurn,
   handResultChats,
   planTurn,
   prepareNextHand,
@@ -622,15 +623,12 @@ export class PokerRoom extends DurableObject<Env> {
     this.chat({ userId: chat.playerId, username: chat.playerName, text: chat.text });
   }
 
-  /** The human on the clock ran out of time — fold them and move on. */
+  /** The seat on the clock ran out of time — close its turn out and move on. */
   private async onTurnExpired(): Promise<void> {
     const game = this.loadGame();
     if (!game || game.stage < 1 || game.stage > 4) return;
 
-    const pi = game.actionOn;
-    if (!game.players[pi]?.isActive) return;
-
-    await this.handleActionResult(foldAndAdvance(game, pi));
+    await this.handleActionResult(resolveUnplayedTurn(game, game.actionOn));
   }
 
   private async onAITurn(): Promise<void> {
@@ -647,7 +645,7 @@ export class PokerRoom extends DurableObject<Env> {
     // already been drained, so returning here would leave the seat on a clock
     // that no longer exists. Treat it as the seat running out of time.
     if (!result) {
-      await this.handleActionResult(foldAndAdvance(game, actingIndex));
+      await this.handleActionResult(resolveUnplayedTurn(game, actingIndex));
       return;
     }
 

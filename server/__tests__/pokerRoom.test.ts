@@ -627,9 +627,36 @@ describe('PokerRoom — the table always has a way forward', () => {
     await TestClient.settle(200);
 
     const after = (await table.game())!;
-    expect(after.stage).toBe(5);
+    // The seat is passed over, not folded: it is all-in, so it has already paid
+    // for the showdown and must keep its claim on the pot.
+    expect(after.players[aiSeat].isActive).toBe(true);
+    expect(after.players[aiSeat].lastAction).not.toBe('FOLD');
+    // And the action moves to the seat that can actually act.
+    expect(after.actionOn).not.toBe(aiSeat);
+    expect(after.players[after.actionOn].isActive).toBe(true);
+    expect(after.players[after.actionOn].isAllIn).toBe(false);
     expect(await alarmAt(table.room)).not.toBeNull();
-    expect((await timers(table.room)).some((r) => r.kind === 'deal')).toBe(true);
+    expect((await timers(table.room)).some((r) => r.kind === 'turn' || r.kind === 'deal')).toBe(
+      true,
+    );
+  });
+
+  it('passes over an all-in seat whose clock expires rather than folding it', async () => {
+    const table = await Table.open(['ALICE', 'BOB']);
+    const dealt = await table.deal();
+    const onClock = dealt.actionOn;
+
+    await writeStoredGame(table.room, (game) => {
+      game.players[onClock].isAllIn = true;
+    });
+
+    expect(await runDurableObjectAlarm(stubFor(table.room))).toBe(true);
+    await TestClient.settle(200);
+
+    const after = (await table.game())!;
+    expect(after.players[onClock].isActive).toBe(true);
+    expect(after.players[onClock].lastAction).not.toBe('FOLD');
+    expect(await alarmAt(table.room)).not.toBeNull();
   });
 
   it('leaves the turn clock armed when an action is rejected', async () => {
