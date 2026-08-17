@@ -108,7 +108,10 @@ export const resolveUnplayedTurn = (game: Poker, playerIndex: number): Poker => 
   return next;
 };
 
-/** Fold a seat that ran out of time (or walked away) and pass the action on. */
+/**
+ * Fold a seat that walked away, or that `resolveUnplayedTurn` sent here, and
+ * pass the action on.
+ */
 export const foldAndAdvance = (game: Poker, playerIndex: number): Poker => {
   const { result } = fold(game, playerIndex);
   result.actionsRemaining = Math.max(0, result.actionsRemaining - 1);
