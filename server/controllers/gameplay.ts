@@ -92,6 +92,22 @@ const dealCommunityCards = (game: Poker): Poker => {
 // Blinds
 // ──────────────────────────────────────────────────────────────────────────────
 
+/**
+ * First seat after `from` that can actually be put on the clock — active and
+ * not already all-in — or `null` when the hand has nobody left to act. The
+ * caller leaves `actionOn` alone in that case: a hand where no seat can act is
+ * run out to showdown rather than clocked.
+ */
+const firstToActAfter = (game: Poker, from: number): number | null => {
+  const n = game.players.length;
+  for (let i = 1; i <= n; i++) {
+    const idx = (from + i) % n;
+    const player = game.players[idx];
+    if (player.isActive && !player.isAllIn) return idx;
+  }
+  return null;
+};
+
 const postBlinds = (game: Poker): void => {
   const n = game.players.length;
   const activePlayers = game.players.filter((p) => p.isActive);
@@ -131,7 +147,8 @@ const postBlinds = (game: Poker): void => {
   game.currentBet = game.bigBlind;
 
   // UTG = first active non-all-in player after BB
-  game.actionOn = nthActiveAfterDealer(3);
+  const utg = firstToActAfter(game, bbIndex);
+  if (utg !== null) game.actionOn = utg;
 
   // All non-all-in players must act pre-flop (including blinds who can raise)
   game.actionsRemaining = game.players.filter((p) => p.isActive && !p.isAllIn).length;
@@ -263,9 +280,67 @@ const determineWinner = (game: Poker): void => {
 // Award pot directly (everyone else folded — no pokersolver needed)
 // ──────────────────────────────────────────────────────────────────────────────
 
+/**
+ * Hand the pot back to the seats that built it. Used when a hand ends with
+ * nobody left to win it, so the chips have to leave the middle somehow.
+ */
+const refundContributions = (game: Poker): void => {
+  let remaining = game.pot;
+
+  // A seat that left the table already forfeited its chips on the way out, and
+  // it must stay gone: `resetGame` deals in on `stack > 0`, so handing one its
+  // contribution back revives a seat the client no longer draws.
+  const seats = game.players.filter((p) => !p.hasLeft);
+
+  // Only the seats that actually staked this hand share what is left over. A
+  // seat sitting the hand out never had a claim on the middle, and crediting it
+  // both revives it — `resetGame` deals in on `stack > 0` — and shortchanges the
+  // seats still in, which would end the hand with less than the same seats win
+  // when the hand instead reaches `awardPotDirectly` with one of them active.
+  const contributors = seats.filter((p) => p.contributed > 0);
+
+  for (const player of contributors) {
+    // `min` keeps chips conserved if the pot and the per-hand ledger disagree.
+    const refund = Math.min(player.contributed, remaining);
+    player.stack += refund;
+    remaining -= refund;
+  }
+  for (const player of game.players) player.contributed = 0;
+
+  // What is left — a departed seat's contribution, plus anything the ledger
+  // never saw — splits evenly, the same fallback `determineWinner` applies to
+  // an untracked pot at showdown. With no contributor on record there is no
+  // better claim than the table's, so every seat still there splits it rather
+  // than the chips vanishing.
+  const heirs = contributors.length > 0 ? contributors : seats;
+  if (remaining > 0 && heirs.length > 0) {
+    const share = Math.floor(remaining / heirs.length);
+    for (const player of heirs) player.stack += share;
+    heirs[0].stack += remaining - share * heirs.length;
+  }
+
+  game.pot = 0;
+};
+
 export const awardPotDirectly = (game: Poker): Poker => {
   const next = cloneDeep(game);
   const active = next.players.map((p, i) => ({ p, i })).filter(({ p }) => p.isActive);
+
+  // Nobody is left to claim it — every seat folded or timed out on the same
+  // hand. There is no winner, so the hand is voided and each seat gets back
+  // what it put in. It still has to finish at stage 5: that is the only stage
+  // the auto-deal moves on from, so a pot left in the middle strands the table.
+  if (active.length === 0) {
+    refundContributions(next);
+    next.winner = [];
+    next.winnerHandName = '';
+    next.winnerCards = [];
+    next.stage = 5;
+    next.timerDeadline = null;
+    next.actionsRemaining = 0;
+    return next;
+  }
+
   if (active.length !== 1) return next;
 
   const { p: winner, i: winnerIndex } = active[0];
@@ -298,7 +373,8 @@ const resetGame = (game: Poker): Poker => {
   game.dealer = (game.dealer + 1) % game.players.length;
   for (const player of game.players) {
     player.cards = [];
-    player.isActive = player.stack > 0; // busted players sit out until they rebuy
+    // Busted players sit out until they rebuy; a departed seat never comes back.
+    player.isActive = player.stack > 0 && !player.hasLeft;
     player.isAllIn = false;
     player.contributed = 0;
     player.lastBet = 0;
@@ -344,13 +420,8 @@ export const advanceGameStage = (game: Poker): Poker => {
     next.actionsRemaining = next.players.filter((p) => p.isActive && !p.isAllIn).length;
 
     // First active non-all-in player left of the dealer
-    const n = next.players.length;
-    let firstToAct = (next.dealer + 1) % n;
-    for (let i = 0; i < n; i++) {
-      if (next.players[firstToAct].isActive && !next.players[firstToAct].isAllIn) break;
-      firstToAct = (firstToAct + 1) % n;
-    }
-    next.actionOn = firstToAct;
+    const firstToAct = firstToActAfter(next, next.dealer);
+    if (firstToAct !== null) next.actionOn = firstToAct;
   }
 
   return next;

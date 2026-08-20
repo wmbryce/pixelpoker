@@ -161,6 +161,34 @@ describe('postBlinds (via pre-flop deal)', () => {
     expect(next.actionOn).toBe(0);
   });
 
+  it('skips a busted seat the dealer button has rotated onto', () => {
+    // dealer=2 and busted, so SB=0, BB=1 and the seat after the BB is the
+    // dealer itself. Clocking it would put the table on a 30s timer nobody can
+    // answer: the auto-fold declines to fold an inactive seat, and every other
+    // route out of stage 1 is closed.
+    const game = makeGame(3);
+    game.dealer = 2;
+    game.players[2].stack = 0;
+    game.players[2].isActive = false;
+
+    const next = advanceGameStage(game);
+    expect(next.actionOn).toBe(0);
+    expect(next.players[next.actionOn].isActive).toBe(true);
+  });
+
+  it('skips a seat the blind itself put all-in', () => {
+    // Heads-up, dealer=1: the 150-chip seat is SB and all-in on the 200 blind,
+    // so the action belongs to the seat that can still act.
+    const game = makeGame(2, 200, 400);
+    game.dealer = 1;
+    game.players[0].stack = 150;
+
+    const next = advanceGameStage(game);
+    expect(next.players[0].isAllIn).toBe(true);
+    expect(next.actionOn).toBe(1);
+    expect(next.players[next.actionOn].isAllIn).toBe(false);
+  });
+
   it('uses custom blind values from the game state', () => {
     const game = makeGame(2, 25, 50); // dealer=0, SB=1, BB=0 (wraps)
     const next = advanceGameStage(game);
@@ -517,5 +545,159 @@ describe('awardPotDirectly', () => {
     awardPotDirectly(game);
     expect(game.pot).toBe(200);
     expect(game.players[0].stack).toBe(1000);
+  });
+
+  // Everyone folding or timing out on the same hand leaves nobody to win it.
+  // The hand still has to end, or the pot sits in the middle and the auto-deal
+  // — which only fires from stage 5 — never runs.
+  describe('when nobody is left to claim the pot', () => {
+    /** Two seats that both put chips in and then both folded. */
+    const voidedHand = (): Poker => {
+      const game = makeGame(2);
+      game.stage = 1;
+      game.pot = 30;
+      game.actionsRemaining = 0;
+      game.players[0].stack = 990;
+      game.players[0].contributed = 10;
+      game.players[0].isActive = false;
+      game.players[1].stack = 980;
+      game.players[1].contributed = 20;
+      game.players[1].isActive = false;
+      return game;
+    };
+
+    it('ends the hand at showdown with an empty pot', () => {
+      const result = awardPotDirectly(voidedHand());
+
+      expect(result.stage).toBe(5);
+      expect(result.pot).toBe(0);
+      expect(result.winner).toEqual([]);
+      expect(result.timerDeadline).toBeNull();
+      expect(result.actionsRemaining).toBe(0);
+    });
+
+    it('refunds each seat exactly what it put in', () => {
+      const result = awardPotDirectly(voidedHand());
+
+      expect(result.players[0].stack).toBe(1000);
+      expect(result.players[1].stack).toBe(1000);
+      expect(result.players.every((p) => p.contributed === 0)).toBe(true);
+    });
+
+    it('preserves chip conservation', () => {
+      const game = voidedHand();
+      const initial = totalChips(game);
+
+      expect(totalChips(awardPotDirectly(game))).toBe(initial);
+    });
+
+    it('splits chips the per-hand ledger never saw rather than losing them', () => {
+      const game = voidedHand();
+      game.pot = 130; // 100 more in the middle than `contributed` accounts for
+      const initial = totalChips(game);
+
+      const result = awardPotDirectly(game);
+      expect(result.pot).toBe(0);
+      expect(totalChips(result)).toBe(initial);
+      expect(result.players[0].stack).toBe(1050);
+      expect(result.players[1].stack).toBe(1050);
+    });
+
+    /** How `onLeaveRoom` retires a seat that walks away off the clock. */
+    const departed = (game: Poker, index: number): Poker => {
+      game.players[index].isActive = false;
+      game.players[index].hasLeft = true;
+      game.players[index].stack = 0;
+      return game;
+    };
+
+    it('does not hand chips back to a seat that left the table', () => {
+      const game = departed(voidedHand(), 1);
+      const initial = totalChips(game);
+
+      const result = awardPotDirectly(game);
+      expect(result.players[1].stack).toBe(0);
+      expect(result.players[1].contributed).toBe(0);
+      // The departed seat's 20 goes to the seat still at the table, not nowhere.
+      expect(result.players[0].stack).toBe(1020);
+      expect(result.pot).toBe(0);
+      expect(totalChips(result)).toBe(initial);
+    });
+
+    it('keeps a departed seat out of the next hand', () => {
+      const voided = awardPotDirectly(departed(voidedHand(), 1));
+
+      const nextHand = advanceGameStage(voided); // 5 → 0 (resetGame)
+      expect(nextHand.players[1].isActive).toBe(false);
+    });
+
+    /**
+     * Seat 0 holds the big blind and is the last seat with a stake in the hand.
+     * Seat 1 posted the small blind and then walked away off the clock. Seat 2
+     * busted earlier and was dealt out, so it never put a chip in.
+     */
+    const strandedHand = (): Poker => {
+      const game = makeGame(3);
+      game.stage = 1;
+      game.pot = 30;
+      game.actionsRemaining = 0;
+      game.players[0].stack = 980;
+      game.players[0].contributed = 20;
+      game.players[1].stack = 0;
+      game.players[1].contributed = 10;
+      game.players[1].isActive = false;
+      game.players[1].hasLeft = true;
+      game.players[2].stack = 0;
+      game.players[2].isActive = false;
+      return game;
+    };
+
+    it('gives nothing to a seat that sat the hand out', () => {
+      const game = strandedHand();
+      game.players[0].isActive = false; // its clock expired too
+      const initial = totalChips(game);
+
+      const result = awardPotDirectly(game);
+      expect(result.players[2].stack).toBe(0);
+      expect(result.pot).toBe(0);
+      expect(totalChips(result)).toBe(initial);
+    });
+
+    it('does not deal a seat that sat the hand out back in', () => {
+      const game = strandedHand();
+      game.players[0].isActive = false;
+
+      const nextHand = advanceGameStage(awardPotDirectly(game)); // 5 → 0 (resetGame)
+      expect(nextHand.players[2].isActive).toBe(false);
+    });
+
+    it('pays the last contributor the same whether it folds or times out', () => {
+      // Seat 0 still active: the pot is awarded to it outright.
+      const awarded = awardPotDirectly(strandedHand());
+
+      // Seat 0 timed out instead, so no seat is left and the hand is voided.
+      const timedOut = strandedHand();
+      timedOut.players[0].isActive = false;
+      const voided = awardPotDirectly(timedOut);
+
+      expect(awarded.players[0].stack).toBe(1010);
+      expect(voided.players[0].stack).toBe(awarded.players[0].stack);
+    });
+
+    it('splits a pot no seat is on record as building across the table', () => {
+      const game = makeGame(2);
+      game.stage = 1;
+      game.pot = 50;
+      game.actionsRemaining = 0;
+      game.players[0].isActive = false;
+      game.players[1].isActive = false;
+      const initial = totalChips(game);
+
+      const result = awardPotDirectly(game);
+      expect(result.pot).toBe(0);
+      expect(totalChips(result)).toBe(initial);
+      expect(result.players[0].stack).toBe(1025);
+      expect(result.players[1].stack).toBe(1025);
+    });
   });
 });

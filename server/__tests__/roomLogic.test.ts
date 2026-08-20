@@ -4,8 +4,11 @@ import {
   planTurn,
   prepareNextHand,
   resolveActionResult,
+  resolveDealtHand,
   runOutBoard,
   foldAndAdvance,
+  resolveUnplayedTurn,
+  processGameAction,
   TURN_DURATION_MS,
   AI_MIN_DELAY_MS,
   AI_MAX_DELAY_MS,
@@ -96,6 +99,130 @@ describe('resolveActionResult', () => {
     expect(outcome.game.stage).toBe(2);
     expect(outcome.game.tableCards).toHaveLength(3);
   });
+
+  it('ends the hand the moment one seat is left, even with actions outstanding', () => {
+    // Heads-up, the seat on the clock folded: the survivor has the pot, so
+    // putting them back on a 30s clock only invites a second timeout — the
+    // route by which a table used to end a hand with nobody active at all.
+    const game = dealtGame();
+    game.players[1].isActive = false;
+    game.actionsRemaining = 1;
+
+    const outcome = resolveActionResult(game);
+    expect(outcome.kind).toBe('awardDirect');
+    expect(outcome.game.stage).toBe(5);
+    expect(outcome.game.winner).toEqual([0]);
+    expect(outcome.game.pot).toBe(0);
+  });
+
+  it('still concludes the hand when no seat is left at all', () => {
+    const game = dealtGame();
+    for (const player of game.players) player.isActive = false;
+    game.actionsRemaining = 0;
+
+    const outcome = resolveActionResult(game);
+    expect(outcome.kind).toBe('awardDirect');
+    // Stage 5 is what the auto-deal keys off; anything else strands the table.
+    expect(outcome.game.stage).toBe(5);
+    expect(outcome.game.pot).toBe(0);
+    expect(outcome.game.winner).toEqual([]);
+  });
+});
+
+describe('resolveDealtHand', () => {
+  /** Blinds larger than the stacks behind them, so the deal itself puts seats all-in. */
+  const dealtOnOversizeBlinds = (stacks: number[]): Poker => {
+    const game = makeGame(stacks.length);
+    game.smallBlind = 200;
+    game.bigBlind = 400;
+    game.lastRaiseSize = 400;
+    stacks.forEach((stack, i) => {
+      game.players[i].stack = stack;
+    });
+    return advanceGameStage(game); // 0 → 1 (deals pre-flop, posts blinds)
+  };
+
+  it('leaves a hand alone while a seat still has a decision to make', () => {
+    const outcome = resolveDealtHand(dealtGame(3));
+
+    expect(outcome.kind).toBe('act');
+    expect(outcome.game.stage).toBe(1);
+    expect(outcome.game.tableCards).toHaveLength(0);
+  });
+
+  it('still gives the one seat that can act its turn rather than running out', () => {
+    // The short seat is all-in on the blind; the deep seat has a call to make.
+    const dealt = dealtOnOversizeBlinds([150, 5000]);
+    expect(dealt.players.filter((p) => p.isActive && !p.isAllIn)).toHaveLength(1);
+
+    const outcome = resolveDealtHand(dealt);
+    expect(outcome.kind).toBe('act');
+    expect(outcome.game.stage).toBe(1);
+    expect(outcome.game.tableCards).toHaveLength(0);
+    // And it is that seat holding the clock, not the one already all-in.
+    expect(outcome.game.players[outcome.game.actionOn].isActive).toBe(true);
+    expect(outcome.game.players[outcome.game.actionOn].isAllIn).toBe(false);
+  });
+
+  it('runs the board out when the blinds left nobody able to act', () => {
+    const dealt = dealtOnOversizeBlinds([100, 150]);
+    expect(dealt.players.some((p) => p.isActive && !p.isAllIn)).toBe(false);
+
+    const outcome = resolveDealtHand(dealt);
+    // Stage 5 or the auto-deal — which only fires from stage 5 — never runs, and
+    // there is no clock to arm and no manual advance once a hand is under way.
+    expect(outcome.kind).toBe('runOut');
+    expect(outcome.game.stage).toBe(5);
+    expect(outcome.game.tableCards).toHaveLength(5);
+    expect(outcome.game.pot).toBe(0);
+    expect(outcome.game.winner.length).toBeGreaterThan(0);
+  });
+});
+
+describe('processGameAction', () => {
+  const otherSeat = (game: Poker) => (game.actionOn + 1) % game.players.length;
+
+  it('accepts an action from the seat on the clock', () => {
+    const game = dealtGame(3);
+    expect(processGameAction(game, { type: 'call', playerIndex: game.actionOn })).not.toBeNull();
+  });
+
+  it('refuses an action for a seat that is not on the clock', () => {
+    const game = dealtGame(3);
+    expect(processGameAction(game, { type: 'fold', playerIndex: otherSeat(game) })).toBeNull();
+  });
+
+  it('refuses a betting action outside a betting round', () => {
+    const game = dealtGame();
+    game.stage = 5;
+    expect(processGameAction(game, { type: 'fold', playerIndex: game.actionOn })).toBeNull();
+  });
+
+  it('refuses an action from a seat that has already folded', () => {
+    const game = dealtGame(3);
+    game.players[game.actionOn].isActive = false;
+    expect(processGameAction(game, { type: 'call', playerIndex: game.actionOn })).toBeNull();
+  });
+
+  it('refuses an under-minimum raise', () => {
+    const game = dealtGame(3);
+    const underMin = game.currentBet + 1; // above the bet, below the min re-raise
+    expect(processGameAction(game, { type: 'raise', playerIndex: game.actionOn, bet: underMin }))
+      .toBeNull();
+  });
+
+  it('deals the first hand on a manual advance between hands', () => {
+    const result = processGameAction(makeGame(), { type: 'advance', playerIndex: -1 });
+    expect(result?.stage).toBe(1);
+  });
+
+  it('refuses a manual advance once the auto-deal owns the transition', () => {
+    // Stage 5 is the 4-second showdown pause. The scheduled deal is what moves
+    // the table on from there; a manual advance would race it.
+    const game = dealtGame();
+    game.stage = 5;
+    expect(processGameAction(game, { type: 'advance', playerIndex: -1 })).toBeNull();
+  });
 });
 
 describe('runOutBoard', () => {
@@ -119,6 +246,73 @@ describe('foldAndAdvance', () => {
     expect(result.players[pi].lastAction).toBe('FOLD');
     expect(result.actionsRemaining).toBe(before - 1);
     expect(result.actionOn).not.toBe(pi);
+  });
+});
+
+describe('resolveUnplayedTurn', () => {
+  it('folds a seat that could have acted and did not', () => {
+    const game = dealtGame(3);
+    const pi = game.actionOn;
+    const before = game.actionsRemaining;
+
+    const result = resolveUnplayedTurn(game, pi);
+
+    expect(result.players[pi].isActive).toBe(false);
+    expect(result.players[pi].lastAction).toBe('FOLD');
+    expect(result.actionsRemaining).toBe(before - 1);
+    expect(result.actionOn).not.toBe(pi);
+  });
+
+  it('passes over an all-in seat instead of folding it', () => {
+    // An all-in seat has already paid for its showdown; folding it here would
+    // strip it of a pot it is still entitled to win.
+    const game = dealtGame(3);
+    const pi = game.actionOn;
+    game.players[pi].isAllIn = true;
+    const before = game.actionsRemaining;
+
+    const result = resolveUnplayedTurn(game, pi);
+
+    expect(result.players[pi].isActive).toBe(true);
+    expect(result.players[pi].isAllIn).toBe(true);
+    expect(result.players[pi].lastAction).toBeNull();
+    expect(result.actionsRemaining).toBe(before);
+    expect(result.actionOn).not.toBe(pi);
+  });
+
+  it('passes over a seat that has already folded without spending an action', () => {
+    const game = dealtGame(3);
+    const pi = game.actionOn;
+    game.players[pi].isActive = false;
+    const before = game.actionsRemaining;
+
+    const result = resolveUnplayedTurn(game, pi);
+
+    expect(result.actionsRemaining).toBe(before);
+    expect(result.actionOn).not.toBe(pi);
+  });
+
+  it('leaves the action where it is when no other seat can act', () => {
+    // `nextPlayer` wraps back to the seat itself here; `resolveActionResult`
+    // is what ends such a hand, so this must not loop the clock back on.
+    const game = dealtGame(3);
+    const pi = game.actionOn;
+    for (const player of game.players) player.isAllIn = true;
+
+    const result = resolveUnplayedTurn(game, pi);
+
+    expect(result.actionOn).toBe(pi);
+    expect(resolveActionResult(result).kind).toBe('runOut');
+  });
+
+  it('does not mutate the game it was given', () => {
+    const game = dealtGame(3);
+    const pi = game.actionOn;
+    game.players[pi].isAllIn = true;
+
+    resolveUnplayedTurn(game, pi);
+
+    expect(game.actionOn).toBe(pi);
   });
 });
 

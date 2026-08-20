@@ -1,3 +1,4 @@
+import { cloneDeep } from 'lodash';
 import type { Poker, GameAction } from './types';
 import { advanceGameStage, awardPotDirectly } from './gameplay';
 import { raise, call, fold, nextPlayer } from './actions';
@@ -24,14 +25,31 @@ const AI_REBUY_STACK = 1000;
 // Action processing
 // ──────────────────────────────────────────────────────────────────────────────
 
+/**
+ * Whether `playerIndex` may act on `game` right now. Returning `null` from
+ * `processGameAction` has to mean "nothing happened": the Durable Object reads
+ * a rejection as its cue to leave every timer exactly as it found them, so a
+ * bad action must never get far enough to change state.
+ */
+const canAct = (game: Poker, playerIndex: number): boolean => {
+  if (game.stage < 1 || game.stage > 4) return false;
+  if (playerIndex !== game.actionOn) return false;
+  const player = game.players[playerIndex];
+  return player !== undefined && player.isActive && !player.isAllIn;
+};
+
 export const processGameAction = (game: Poker, action: GameAction): Poker | null => {
   const { type, playerIndex, bet } = action;
 
   if (type === 'advance') {
-    // Only allow manual advance at stage 0 (start first hand) or stage 5+
-    if (game.stage > 0 && game.stage < 5) return null;
+    // Manual advance deals the first hand of a table sitting at stage 0. From
+    // stage 5 the scheduled auto-deal owns the transition, and letting a client
+    // race it resets the table to stage 0 while that deal is still pending.
+    if (game.stage !== 0) return null;
     return advanceGameStage(game);
   }
+
+  if (!canAct(game, playerIndex)) return null;
 
   let result: Poker | null = null;
 
@@ -69,7 +87,31 @@ export const processGameAction = (game: Poker, action: GameAction): Poker | null
   return result;
 };
 
-/** Fold a seat that ran out of time (or walked away) and pass the action on. */
+/**
+ * Close out a turn the seat on the clock never played — it ran out of time, or
+ * the rules turned its decision down.
+ *
+ * A seat that could have acted simply failed to, so it folds. A seat that could
+ * not act is only passed over: folding an all-in seat would strip it of a
+ * showdown it has already paid for, and folding one that has already folded
+ * would spend an action nobody owed. Either way the action moves on, because
+ * the alarm behind this turn is already gone.
+ */
+export const resolveUnplayedTurn = (game: Poker, playerIndex: number): Poker => {
+  const player = game.players[playerIndex];
+  if (player?.isActive && !player.isAllIn) return foldAndAdvance(game, playerIndex);
+
+  // `nextPlayer` only lands back on this seat when no other seat can act, and
+  // `resolveActionResult` ends such a hand rather than re-arming the clock.
+  const next = cloneDeep(game);
+  next.actionOn = nextPlayer(next, playerIndex);
+  return next;
+};
+
+/**
+ * Fold a seat that walked away, or that `resolveUnplayedTurn` sent here, and
+ * pass the action on.
+ */
 export const foldAndAdvance = (game: Poker, playerIndex: number): Poker => {
   const { result } = fold(game, playerIndex);
   result.actionsRemaining = Math.max(0, result.actionsRemaining - 1);
@@ -84,7 +126,7 @@ export const foldAndAdvance = (game: Poker, playerIndex: number): Poker => {
 export type ActionOutcome =
   /** Betting continues — start the next seat's clock. */
   | { kind: 'continue'; game: Poker }
-  /** Everyone folded — pot awarded, hand over. */
+  /** At most one seat left — pot awarded, or voided if none is left, hand over. */
   | { kind: 'awardDirect'; game: Poker }
   /** Remaining players are all-in — board dealt to showdown, hand over. */
   | { kind: 'runOut'; game: Poker }
@@ -107,13 +149,37 @@ export const resolveActionResult = (result: Poker): ActionOutcome => {
   const activePlayers = result.players.filter((p) => p.isActive);
   const playersWhoCanAct = activePlayers.filter((p) => !p.isAllIn);
 
+  // Checked before `actionsRemaining`: once nobody is left to contest the pot
+  // the hand is over, whatever the action count says. Deferring to the count
+  // put the last seat standing back on a 30s clock, and a second timeout there
+  // folded the table down to nobody active — a pot with no winner.
+  if (activePlayers.length <= 1) return { kind: 'awardDirect', game: awardPotDirectly(result) };
+
   if (result.actionsRemaining > 0 && playersWhoCanAct.length > 0) {
     return { kind: 'continue', game: result };
   }
 
-  if (activePlayers.length <= 1) return { kind: 'awardDirect', game: awardPotDirectly(result) };
   if (playersWhoCanAct.length <= 1) return { kind: 'runOut', game: runOutBoard(result) };
   return { kind: 'advance', game: advanceGameStage(result) };
+};
+
+export type DealtHandOutcome =
+  /** At least one seat has a decision to make — put it on the clock. */
+  | { kind: 'act'; game: Poker }
+  /** Nobody can act — board dealt to showdown, hand over. */
+  | { kind: 'runOut'; game: Poker };
+
+/**
+ * What a freshly dealt hand needs next. Blinds can put every seat all-in at
+ * once (`postBlinds` caps a blind at the stack behind it), and such a hand has
+ * no clock to arm: it has to run out to showdown, because stage 5 is the only
+ * stage the auto-deal moves on from. One seat able to act is not that case —
+ * it still gets its turn, or it loses the chance to call the all-in.
+ */
+export const resolveDealtHand = (game: Poker): DealtHandOutcome => {
+  const anyoneCanAct = game.players.some((p) => p.isActive && !p.isAllIn);
+  if (anyoneCanAct) return { kind: 'act', game };
+  return { kind: 'runOut', game: runOutBoard(game) };
 };
 
 // ──────────────────────────────────────────────────────────────────────────────

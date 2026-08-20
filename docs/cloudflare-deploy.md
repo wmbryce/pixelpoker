@@ -230,15 +230,3 @@ itself is dependency-free and runs unmodified on workerd.
   by nature, so `LOBBY` is a single instance. It handles one request per
   quickplay click, which is nowhere near a bottleneck at this scale, but it is
   the one part of the design that does not shard.
-- **Three ways a table can stall.** All are carried over from the Express
-  version rather than introduced by the port, and all leave a table waiting for
-  someone to act voluntarily:
-  1. Acting during the 4-second showdown window cancels the auto-deal and never
-     reschedules it.
-  2. If every player times out on the same hand, the pot is never awarded —
-     `awardPotDirectly` no-ops at zero active players and the auto-deal handler
-     bails on `stage !== 5`.
-  3. `onGameAction` clears the turn/ai/deal timers *before* `processGameAction`
-     decides the action is legal, so a rejected action — an under-minimum raise,
-     or an action for a seat that is not on the clock, which is never checked —
-     deletes the alarm outright.

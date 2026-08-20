@@ -22,11 +22,13 @@ import {
   AUTO_DEAL_DELAY_MS,
   aiChatDelayMs,
   foldAndAdvance,
+  resolveUnplayedTurn,
   handResultChats,
   planTurn,
   prepareNextHand,
   processGameAction,
   resolveActionResult,
+  resolveDealtHand,
 } from '../controllers/roomLogic';
 import { AlarmScheduler, type ScheduledTimer } from './scheduler';
 import { LOBBY_SINGLETON } from './Lobby';
@@ -51,7 +53,10 @@ interface SocketState {
   clientId: string;
   playerIndex: number;
   name: string;
-  /** Last accepted gameAction, for the anti-spam cooldown. */
+  /**
+   * Last gameAction *received*, for the anti-spam cooldown — charged before
+   * validation, so a rejected action is rate-limited like any other.
+   */
   lastActionAt: number;
 }
 
@@ -417,14 +422,24 @@ export class PokerRoom extends DurableObject<Env> {
     const game = this.loadGame();
     if (!game) return;
 
-    this.scheduler.clear('turn', 'ai', 'deal');
-
-    const updated = processGameAction(game, action);
-    if (updated) {
-      await this.handleActionResult(updated);
-    } else {
-      await this.scheduler.sync();
+    // A connection may only act for the seat it occupies. `advance` is a
+    // table-level request — the client sends it with playerIndex -1 — so it is
+    // the one action not tied to a seat.
+    if (action.type !== 'advance' && action.playerIndex !== state.playerIndex) {
+      this.send(ws, 'error', { message: 'NOT_YOUR_SEAT' });
+      return;
     }
+
+    // Validate before touching a timer, never after. A rejected action leaves
+    // the turn clock, its generation and any pending auto-deal exactly as they
+    // were, so it can neither strand the table nor push its own deadline out.
+    const updated = processGameAction(game, action);
+    if (!updated) {
+      this.send(ws, 'error', { message: 'ACTION_REJECTED' });
+      return;
+    }
+
+    await this.handleActionResult(updated);
   }
 
   private onChangeBlinds(ws: WebSocket, data: { smallBlind: number; bigBlind: number }): void {
@@ -608,15 +623,12 @@ export class PokerRoom extends DurableObject<Env> {
     this.chat({ userId: chat.playerId, username: chat.playerName, text: chat.text });
   }
 
-  /** The human on the clock ran out of time — fold them and move on. */
+  /** The seat on the clock ran out of time — close its turn out and move on. */
   private async onTurnExpired(): Promise<void> {
     const game = this.loadGame();
     if (!game || game.stage < 1 || game.stage > 4) return;
 
-    const pi = game.actionOn;
-    if (!game.players[pi]?.isActive) return;
-
-    await this.handleActionResult(foldAndAdvance(game, pi));
+    await this.handleActionResult(resolveUnplayedTurn(game, game.actionOn));
   }
 
   private async onAITurn(): Promise<void> {
@@ -629,7 +641,13 @@ export class PokerRoom extends DurableObject<Env> {
 
     const { action, chatTrigger } = makeAIDecision(game, actingIndex, personaForPlayer(player));
     const result = processGameAction(game, action);
-    if (!result) return;
+    // A decision the rules turn down cannot simply be dropped: this alarm has
+    // already been drained, so returning here would leave the seat on a clock
+    // that no longer exists. Treat it as the seat running out of time.
+    if (!result) {
+      await this.handleActionResult(resolveUnplayedTurn(game, actingIndex));
+      return;
+    }
 
     this.queueAIChat(game, actingIndex, chatTrigger);
     await this.handleActionResult(result);
@@ -649,7 +667,16 @@ export class PokerRoom extends DurableObject<Env> {
       return;
     }
 
-    await this.armTurnClock(next);
+    // A hand nobody can act on has no clock to arm, and `advance` is refused
+    // once a hand is under way, so arming an empty clock would strand the table
+    // at stage 1 with the alarm deleted.
+    const dealt = resolveDealtHand(next);
+    if (dealt.kind === 'runOut') {
+      await this.concludeHand(dealt.game);
+      return;
+    }
+
+    await this.armTurnClock(dealt.game);
     this.broadcastGame();
   }
 
